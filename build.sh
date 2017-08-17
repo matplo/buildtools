@@ -133,10 +133,10 @@ function executable_from_path()
 
 function config_value()
 {
-	local _what=$1
+	local _what="$1"
 	local _retval=""
 	#"[error]querying-an-unset-config-setting:${_what}"
-	local _config=${bt_config}
+	local _config=${BT_config}
 	if [ ! -f ${_config} ]; then
 		echo ${_retval}
 	fi
@@ -146,10 +146,8 @@ function config_value()
 		for ln in $(seq 1 ${_nlines})
 		do
 			_line=$(head -n ${ln} ${_config} | tail -n 1)
-			#_pack=$(echo ${_line} | grep ${_what} | cut -f 1 -d "=" | sed 's| ||g')
-			#_val=$(echo ${_line} | grep ${_what} | grep -v ${_what}_deps | cut -f 2 -d "=" | sed 's| ||g')
 			_pack=$(echo ${_line} | grep ${_what} | cut -f 1 -d "=" | sed 's/^ *//g' | sed 's/ *$//g')
-			_val=$(echo ${_line} | grep ${_what} | grep -v ${_what}_deps | cut -f 2 -d "=" | sed 's/^ *//g' | sed 's/ *$//g' | tr -d '\n')
+			_val=$(echo ${_line} | grep ${_what} | cut -f 2 -d "=" | sed 's/^ *//g' | sed 's/ *$//g' | tr -d '\n')
 			[ "${_pack}" == "${_what}" ] && _retval=${_val}
 		done
 	fi
@@ -163,14 +161,29 @@ function process_options()
 	touch .tmp.sh
 	for opt in ${_opts}
 	do
-		if [ $(is_opt_set --${opt}) ];
+		if [ $(is_opt_set "--${opt}") ];
 			then
-				echo "export bt_$opt=yes" >> .tmp.sh
+				echo "export BT_$opt=yes" >> .tmp.sh
 			else
-				echo "export bt_$opt=no" >> .tmp.sh
+				echo "export BT_UNDEFINED_$opt=" >> .tmp.sh
 		fi
 		if [ ! -z $(get_opt_with --${opt}) ]; then
-			echo "export bt_$opt=$(get_opt_with --${opt})" >> .tmp.sh
+			echo "export BT_$opt=$(get_opt_with --${opt})" >> .tmp.sh
+		fi
+	done
+	source .tmp.sh
+	rm -rf .tmp.sh
+}
+
+function reprocess_defined_options()
+{
+	local _opts="$@"
+	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	touch .tmp.sh
+	for opt in ${_opts}
+	do
+		if [ ! -z $(get_opt_with --${opt}) ]; then
+			echo "export BT_$opt=$(get_opt_with --${opt})" >> .tmp.sh
 		fi
 	done
 	source .tmp.sh
@@ -182,13 +195,16 @@ function process_options_config()
 	local _var="options"
 	[ ! -z $1 ] && _var=$1
 	local _opts=$(config_value ${_var})
-	bt_config_opts=""
 	[ -f .tmp.sh ] && rm -rf .tmp.sh
 	touch .tmp.sh
 	for opt in ${_opts}
 	do
-		echo "export bt_$opt=$(get_opt_with --${opt})" >> .tmp.sh
-		export bt_config_opts="${bt_config_opts} ${opt}"
+		echo "export BT_$opt=$(get_opt_with --${opt})" >> .tmp.sh
+		if [ -z "${BT_config_options}" ]; then
+			export BT_config_options="${opt}"
+		else
+			export BT_config_options="${BT_config_options} ${opt}"
+		fi
 	done
 	source .tmp.sh
 	rm -rf .tmp.sh
@@ -196,9 +212,9 @@ function process_options_config()
 
 function read_config_options()
 {
-	for o in ${bt_config_opts}
+	for o in ${BT_config_options}
 	do
-		export bt_${o}="$(config_value $o)"
+		export BT_${o}="$(config_value $o)"
 	done
 }
 
@@ -211,57 +227,85 @@ function usage()
 
 function check_config_present()
 {
-	[ -z ${bt_config} ] && echo "[e] no config file specified."  && usage && exit 1
-	[ ! -f "${bt_config}" ] && echo "[e] config file ${bt_config} not found."  && usage && exit 1
+	[ -z ${BT_config} ] && echo "[e] no config file specified."  && usage && exit 1
+	[ ! -f "${BT_config}" ] && echo "[e] config file ${BT_config} not found."  && usage && exit 1
 }
 
 function bool()
 {
-	[ -z "$1" ] && echo
+	[ -z "$1" ] && echo && return
 	[ $1 == "yes" ] && echo "true"
 	[ $1 == "no" ] && echo ""
 }
 
+function is_set()
+{
+	[ -z "$1" ] && echo "" && return
+	[ "$1" == "no" ] && echo "" && return
+	[ "$1" == "yes" ] && [ -z "$1" ] && echo "" && return
+	echo "$1"
+}
+
 function list_options()
 {
-	local _list=$(env | grep "bt_")
+	local _list=$(env | grep "BT_")
 	if [ -z "$1" ]; then
 		echo "[i] options:"
 	else
 		echo $1
 	fi
-	for _opt in ${_list}
-	do
-		local _op=$(echo ${_opt} | cut -f 2 -d "_")
-		echo "    ${_op}"
-	done
+	# echo $(env | grep "BT_" | sed 's|\n|,|g' | sed 's|BT_||g')
+	echo ${_list}
 }
 
 function process_modules()
 {
-	for p in ${bt_modulepaths}
+	for p in ${BT_module_paths}
 	do
 		local _path
 		eval _path=$p
 		echo "[i] adding module path: ${_path}"
 		module use ${_path}
 	done
-	module avail
-	#if [ $(host_pdsf) ]; then
-	#	if [ ! -z "${pdsf_modules}" ]; then
-	#		echo "[i] pdsf_modules   : " $pdsf_modules
-	#		module load ${pdsf_modules}
-	#		(($?!=0)) && exit 1
-	#	fi
-	#else
-	#	if [ ! -z "${module_deps}" ]; then
-	#		module load ${module_deps}
-	#		(($?!=0)) && exit 1
-	#	else
-	#		echo "[i] no extra modules loaded"
-	#	fi
-	#fi
+	if [ ! -z "${BT_modules}" ]; then
+		module load ${BT_modules}
+	else
+		echo "[i] no extra modules loaded"
+	fi
 	module list
+}
+
+function separator()
+{
+	echo
+	echo "---------------"
+	echo
+}
+function download()
+{
+	savedir=$PWD
+	separator
+	echo "[i] download..."
+	if [ $(bool ${BT_download}) ]; then
+		env | grep BT_working_dir
+		[ -z "${BT_working_dir}" ] && echo " - [error] working_dir not specified [${BT_working_dir}]" && exit 1
+		[ ! -d "${BT_working_dir}" ] && echo " - [error] workingdir not a directory [${BT_working_dir}]" && exit 1
+		env | grep BT_local_file
+		[ -z "${BT_local_file}" ] && echo " - [error] local_file not specified [${BT_local_file}]" && exit 1
+		env | grep BT_remote_file
+		[ -z "${BT_remote_file}" ] && echo " - [error] remote file not specified [${BT_remote_file}]" && exit 1
+		if [ -f "${BT_local_file}" ]; then
+			if [ ${BT_force} ]; then
+				[ -f "${BT_local_file}" ] && rm ${BT_local_file}
+			else
+				echo "[w] file ${BT_local_file} exists. no download - use --force to override."
+			fi
+		else
+				wget ${BT_remote_file} --no-check-certificate -O ${BT_local_file}
+		fi
+	fi
+	separator
+	cd $savedir
 }
 
 this_file_dir=$(thisdir)
@@ -269,12 +313,14 @@ this_dir=$(abspath $this_file_dir)
 up_dir=$(dirname $this_dir)
 buildtools_dir=$(thisdir)
 
-process_options version clean build rebuild module config help dry
-[ $(bool ${bt_help}) ] && usage
+process_options version clean build rebuild module config help dry download working_dir force
+[ $(bool ${BT_help}) ] && usage
 check_config_present
 process_options_config
-process_options ${bt_config_opts}
 read_config_options
+reprocess_defined_options ${BT_config_options}
 
 list_options
+
+download
 process_modules
