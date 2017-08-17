@@ -281,12 +281,13 @@ function separator()
 	echo "---------------"
 	echo
 }
+
 function download()
 {
-	savedir=$PWD
-	separator
-	echo "[i] download..."
 	if [ $(bool ${BT_download}) ]; then
+		savedir=$PWD
+		separator
+		echo "[i] download..."
 		env | grep BT_working_dir
 		[ -z "${BT_working_dir}" ] && echo " - [error] working_dir not specified [${BT_working_dir}]" && exit 1
 		[ ! -d "${BT_working_dir}" ] && echo " - [error] workingdir not a directory [${BT_working_dir}]" && exit 1
@@ -296,16 +297,17 @@ function download()
 		[ -z "${BT_remote_file}" ] && echo " - [error] remote file not specified [${BT_remote_file}]" && exit 1
 		if [ -f "${BT_local_file}" ]; then
 			if [ ${BT_force} ]; then
-				[ -f "${BT_local_file}" ] && rm ${BT_local_file}
+				[ -f "${BT_local_file}" ] && rm -fv ${BT_local_file}
+				wget ${BT_remote_file} --no-check-certificate -O ${BT_local_file}
 			else
 				echo "[w] file ${BT_local_file} exists. no download - use --force to override."
 			fi
 		else
 				wget ${BT_remote_file} --no-check-certificate -O ${BT_local_file}
 		fi
+		separator
+		cd $savedir
 	fi
-	separator
-	cd $savedir
 }
 
 this_file_dir=$(thisdir)
