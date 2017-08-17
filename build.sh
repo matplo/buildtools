@@ -1,5 +1,7 @@
 #!/bin/bash
 
+global_args="$@"
+
 function abspath()
 {
 	case "${1}" in
@@ -26,24 +28,253 @@ function thisdir()
 	echo $THISDIR
 }
 
-function usage()
+function get_opt_with()
 {
-	echo "[i] usage: $(basename $BASH_SOURCE) --config <config_file>"
+	local do_echo=
+	local retval=
+	for g in ${global_args}
+	do
+		if [ ! -z $do_echo ] ; then
+			if [[ ${g:0:1} != "-" ]]; then
+				retval=$g
+			fi
+			do_echo=
+		fi
+		if [ $g == $1 ]; then
+			do_echo="yes"
+		fi
+	done
+	echo $retval
 }
 
+function is_opt_set()
+{
+	local retval=
+	for g in ${global_args}
+	do
+		if [[ ${g:0:1} != "-" ]]; then
+			continue
+		fi
+		if [ $g == $1 ]; then
+			retval="yes"
+		fi
+	done
+	echo $retval
+}
+
+function os_linux()
+{
+	_system=$(uname -a | cut -f 1 -d " ")
+	if [ $_system == "Linux" ]; then
+		echo "yes"
+	else
+		echo
+	fi
+}
+
+function os_darwin()
+{
+	_system=$(uname -a | cut -f 1 -d " ")
+	if [ $_system == "Darwin" ]; then
+		echo "yes"
+	else
+		echo
+	fi
+}
+
+function host_pdsf()
+{
+	_system=$(uname -n | cut -c 1-4)
+	if [ $_system == "pdsf" ]; then
+		echo "yes"
+	else
+		echo
+	fi
+}
+
+function sedi()
+{
+	[ $(os_darwin) ] && sed -i "" -e ${global_args}
+	[ $(os_linux)  ] && sed -i'' -e ${global_args}
+}
+
+function strip_root_dir()
+{
+	local _this_dir=$1
+	echo $(echo $_this_dir | sed "s|${up_dir}||" | sed "s|/||")
+}
+
+function module_name()
+{
+	local _this_dir=$(abspath $1)
+	#echo $(dirname $(echo $_this_dir | sed "s|${up_dir}||" | sed "s|/||" | sed "s|.||"))
+	echo $(basename $(dirname $(echo ${_this_dir} | sed "s|${up_dir}||")))
+}
+
+function n_cores()
+{
+	local _ncores="1"
+	[ $(os_darwin) ] && local _ncores=$(system_profiler SPHardwareDataType | grep "Number of Cores" | cut -f 2 -d ":" | sed 's| ||')
+	[ $(os_linux) ] && local _ncores=$(lscpu | grep "CPU(s):" | head -n 1 | cut -f 2 -d ":" | sed 's| ||g')
+	#[ ${_ncores} -gt "1" ] && retval=$(_ncores-1)
+	echo ${_ncores}
+}
+
+function executable_from_path()
+{
+	# this thing does NOT like the aliases
+	local _exec=$(which $1 | grep -v "alias" | cut -f 2)
+	if [ ${_exec} ]; then
+		echo ${_exec}
+	else
+		echo ""
+	fi
+}
+
+function config_value()
+{
+	local _what=$1
+	local _retval=""
+	#"[error]querying-an-unset-config-setting:${_what}"
+	local _config=${bt_config}
+	if [ ! -f ${_config} ]; then
+		echo ${_retval}
+	fi
+	if [ ! -z ${_what} ]; then
+		local _nlines=$(cat ${_config} | wc -l)
+		_nlines=$((_nlines+1))
+		for ln in $(seq 1 ${_nlines})
+		do
+			_line=$(head -n ${ln} ${_config} | tail -n 1)
+			#_pack=$(echo ${_line} | grep ${_what} | cut -f 1 -d "=" | sed 's| ||g')
+			#_val=$(echo ${_line} | grep ${_what} | grep -v ${_what}_deps | cut -f 2 -d "=" | sed 's| ||g')
+			_pack=$(echo ${_line} | grep ${_what} | cut -f 1 -d "=" | sed 's/^ *//g' | sed 's/ *$//g')
+			_val=$(echo ${_line} | grep ${_what} | grep -v ${_what}_deps | cut -f 2 -d "=" | sed 's/^ *//g' | sed 's/ *$//g' | tr -d '\n')
+			[ "${_pack}" == "${_what}" ] && _retval=${_val}
+		done
+	fi
+	echo ${_retval}
+}
+
+function process_options()
+{
+	local _opts="$@"
+	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	touch .tmp.sh
+	for opt in ${_opts}
+	do
+		if [ $(is_opt_set --${opt}) ];
+			then
+				echo "export bt_$opt=yes" >> .tmp.sh
+			else
+				echo "export bt_$opt=no" >> .tmp.sh
+		fi
+		if [ ! -z $(get_opt_with --${opt}) ]; then
+			echo "export bt_$opt=$(get_opt_with --${opt})" >> .tmp.sh
+		fi
+	done
+	source .tmp.sh
+	rm -rf .tmp.sh
+}
+
+function process_options_config()
+{
+	local _var="options"
+	[ ! -z $1 ] && _var=$1
+	local _opts=$(config_value ${_var})
+	bt_config_opts=""
+	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	touch .tmp.sh
+	for opt in ${_opts}
+	do
+		echo "export bt_$opt=$(get_opt_with --${opt})" >> .tmp.sh
+		export bt_config_opts="${bt_config_opts} ${opt}"
+	done
+	source .tmp.sh
+	rm -rf .tmp.sh
+}
+
+function read_config_options()
+{
+	for o in ${bt_config_opts}
+	do
+		export bt_${o}="$(config_value $o)"
+	done
+}
+
+function usage()
+{
+	echo "[i] usage: $(basename $BASH_SOURCE) --config <config_file> [--clean] [--version] [--build] [--rebuild] [--module] [--help] [--dry]"
+	list_options "[i] set/defined options are:"
+	exit 1
+}
+
+function check_config_present()
+{
+	[ -z ${bt_config} ] && echo "[e] no config file specified."  && usage && exit 1
+	[ ! -f "${bt_config}" ] && echo "[e] config file ${bt_config} not found."  && usage && exit 1
+}
+
+function bool()
+{
+	[ -z "$1" ] && echo
+	[ $1 == "yes" ] && echo "true"
+	[ $1 == "no" ] && echo ""
+}
+
+function list_options()
+{
+	local _list=$(env | grep "bt_")
+	if [ -z "$1" ]; then
+		echo "[i] options:"
+	else
+		echo $1
+	fi
+	for _opt in ${_list}
+	do
+		local _op=$(echo ${_opt} | cut -f 2 -d "_")
+		echo "    ${_op}"
+	done
+}
+
+function process_modules()
+{
+	for p in ${bt_modulepaths}
+	do
+		local _path
+		eval _path=$p
+		echo "[i] adding module path: ${_path}"
+		module use ${_path}
+	done
+	module avail
+	#if [ $(host_pdsf) ]; then
+	#	if [ ! -z "${pdsf_modules}" ]; then
+	#		echo "[i] pdsf_modules   : " $pdsf_modules
+	#		module load ${pdsf_modules}
+	#		(($?!=0)) && exit 1
+	#	fi
+	#else
+	#	if [ ! -z "${module_deps}" ]; then
+	#		module load ${module_deps}
+	#		(($?!=0)) && exit 1
+	#	else
+	#		echo "[i] no extra modules loaded"
+	#	fi
+	#fi
+	module list
+}
+
+this_file_dir=$(thisdir)
+this_dir=$(abspath $this_file_dir)
+up_dir=$(dirname $this_dir)
 buildtools_dir=$(thisdir)
-echo "[i] build tools in: ${buildtools_dir}"
 
-echo "    sourcing tools: ${buildtools_dir}/tools.sh"
-source ${buildtools_dir}/tools.sh
-config_file=$(get_opt_with --config)
-[ -z ${config_file} ] && echo "[e] no config file..."  && usage && exit 1
-echo "    config file ${config_file}"
-process_options version clean build module
-process_options
+process_options version clean build rebuild module config help dry
+[ $(bool ${bt_help}) ] && usage
+check_config_present
+process_options_config
+process_options ${bt_config_opts}
+read_config_options
 
-echo "[i] version is: ${version}"
-echo "[i] module is: ${module}"
-echo "[i] test is: ${test}"
-
-
+list_options
+process_modules

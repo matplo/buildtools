@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export global_args="$@"
+global_args="$@"
 
 function abspath()
 {
@@ -32,7 +32,7 @@ function get_opt_with()
 {
 	local do_echo=
 	local retval=
-	for g in $global_args
+	for g in ${global_args}
 	do
 		if [ ! -z $do_echo ] ; then
 			if [[ ${g:0:1} != "-" ]]; then
@@ -50,7 +50,7 @@ function get_opt_with()
 function is_opt_set()
 {
 	local retval=
-	for g in $global_args
+	for g in ${global_args}
 	do
 		if [[ ${g:0:1} != "-" ]]; then
 			continue
