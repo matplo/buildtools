@@ -388,6 +388,12 @@ function fix_paths()
 	[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit
 	env | grep BT_sources_dir
 
+	if [ ! -z "${BT_src_dir}" ]; then
+		eval BT_src_dir=$BT_src_dir
+		export BT_src_dir
+		env | grep BT_src_dir
+	fi
+
 	[ -z "${BT_build_dir}" ] && export BT_build_dir=$BT_working_dir/build/$BT_version
 	[ ! -d ${BT_build_dir} ] && echo "[warning] making directory for building ${BT_build_dir}"
 	mkdir -pv ${BT_build_dir}
@@ -404,6 +410,7 @@ function build()
 function init_build_tools()
 {
 	export BT_save_dir=$PWD
+	export BT_config_dir=$(dirname $(abspath ${BT_config}))
 	export BT_now=$(date +%Y-%m-%d_%H_%M_%S)
 
 	# this_file_dir=$(thisdir)
@@ -435,18 +442,21 @@ function run_build()
 		echo "[i] building..."
 		savedir=$PWD
 		cd ${BT_sources_dir}
-		[ ! -e ${BT_local_file} ] && echo "[e] file ${BT_local_file} does not exist" && exit 1
 		if [ ! -d "${BT_src_dir}" ]; then
 			echo "[i] unpacking..."
+			[ ! -e ${BT_local_file} ] && echo "[e] file ${BT_local_file} does not exist" && do_exit
 			tar zxvf ${BT_local_file} 2>&1 > /dev/null
 		fi
-		[ ! -d "${BT_src_dir}" ] && echo "[e] dir "${BT_src_dir}" does not exist" && exit 1
+		[ ! -d "${BT_src_dir}" ] && echo "[e] dir "${BT_src_dir}" does not exist" && do_exit
 		cd "${BT_build_dir}"
 		if [ $(bool ${BT_clean}) ]; then
+			echo "[i] removing ${BT_install_dir}"
 			rm -rf ${BT_install_dir}
+			echo "[i] removing ${BT_build_dir}"
+			rm -rf ${BT_build_dir}
 		else
 			if [ ! $(bool ${BT_rebuild}) ]; then
-				[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean. stop." && exit 1
+				[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean. stop." && do_exit
 			fi
 		fi
 		build
