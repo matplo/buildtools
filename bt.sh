@@ -363,7 +363,7 @@ function fix_paths()
 
 	[ -z "$BT_install_dir" ] && export BT_install_dir=$PWD/${BT_module}/${BT_version}
 	eval BT_install_dir=$BT_install_dir/${BT_module}/${BT_version}
-	export $BT_install_dir
+	export BT_install_dir
 	env | grep BT_install_dir
 
 	[ -z "${BT_working_dir}" ] && export BT_working_dir=$PWD/working_dir
