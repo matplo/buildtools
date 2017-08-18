@@ -157,6 +157,7 @@ function config_value()
 function process_options()
 {
 	local _opts="$@"
+	echo "[i] processing options: ${_opts}"
 	[ -f .tmp.sh ] && rm -rf .tmp.sh
 	touch .tmp.sh
 	for opt in ${_opts}
@@ -178,6 +179,7 @@ function process_options()
 function reprocess_defined_options()
 {
 	local _opts="$@"
+	echo "[i] re-processing defined options: ${_opts}"
 	[ -f .tmp.sh ] && rm -rf .tmp.sh
 	touch .tmp.sh
 	for opt in ${_opts}
@@ -299,16 +301,17 @@ function do_exit()
 function download()
 {
 	if [ $(bool ${BT_download}) ]; then
+		fix_download_paths
 		savedir=$PWD
 		cd ${BT_working_dir}
 		separator
 		echo "[i] download..."
-		env | grep BT_working_dir
+		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 		[ -z "${BT_working_dir}" ] && echo " - [error] working_dir not specified [${BT_working_dir}]" && do_exit
 		[ ! -d "${BT_working_dir}" ] && echo " - [error] working_dir not a directory [${BT_working_dir}]" && do_exit
-		env | grep BT_local_file
+		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
 		[ -z "${BT_local_file}" ] && echo " - [error] local_file not specified [${BT_local_file}]" && do_exit
-		env | grep BT_remote_file
+		[ $(bool ${BT_debug}) ] && env | grep BT_remote_file
 		[ -z "${BT_remote_file}" ] && echo " - [error] remote file not specified [${BT_remote_file}]" && do_exit
 		if [ -f "${BT_local_file}" ]; then
 			if [ ${BT_force} ]; then
@@ -322,6 +325,7 @@ function download()
 		fi
 		cd $savedir
 	fi
+	setup_src_dir
 }
 
 function setup_src_dir()
@@ -331,8 +335,8 @@ function setup_src_dir()
 		cd ${BT_working_dir}
 		separator
 		echo "[i] setup unpack_dir..."
-		env | grep BT_working_dir
-		env | grep BT_local_file
+		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
+		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
 		if [ -f "${BT_local_file}" ]; then
 			local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
 			[ -z ${_local_dir} ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
@@ -345,33 +349,32 @@ function setup_src_dir()
 				echo "[w] local file does not exist? ${local_file}"
 				export BT_src_dir=${BT_working_dir}/${BT_module}_${BT_version}
 			fi
-			env | grep BT_src_dir
+			[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
 		fi
 		cd $savedir
 	fi
 }
 
-function fix_paths()
+function fix_working_paths()
 {
-	separator
+	[ -z "${BT_working_dir}" ] && export BT_working_dir=$PWD/working_dir
+	export BT_working_dir=$(abspath $BT_working_dir)
+	[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
+	[ ! -d "${BT_working_dir}" ] && mkdir -pv $BT_working_dir
+	[ ! -d "${BT_working_dir}" ] && echo " - [error] working_dir not a directory [${BT_working_dir}]" && do_exit
+}
 
-	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
-	env | grep BT_version=
-
-	[ -z "${BT_module}" ] && echo "[w] guessing module name from $PWD" && export BT_module=$(basename $PWD)
-	env | grep BT_module=
-
+function fix_install_paths()
+{
 	[ -z "$BT_install_dir" ] && export BT_install_dir=$PWD/${BT_module}/${BT_version}
 	eval BT_install_dir=$BT_install_dir/${BT_module}/${BT_version}
 	export BT_install_dir
-	env | grep BT_install_dir
+	[ $(bool ${BT_debug}) ] && env | grep BT_install_dir
+}
 
-	[ -z "${BT_working_dir}" ] && export BT_working_dir=$PWD/working_dir
-	export BT_working_dir=$(abspath $BT_working_dir)
-	env | grep BT_working_dir
-	[ ! -d "${BT_working_dir}" ] && mkdir -pv $BT_working_dir
-	[ ! -d "${BT_working_dir}" ] && echo " - [error] working_dir not a directory [${BT_working_dir}]" && do_exit
-
+function fix_download_paths()
+{
+	fix_working_paths
 	[ -z "${BT_local_file}" ] && export BT_local_file="$BT_working_dir/downloads/$BT_module.download"
 	BT_download_dir=$(dirname $BT_local_file)
 	[ ! -d ${BT_download_dir} ] && echo "[warning] making directory for download file ${BT_download_dir}"
@@ -380,26 +383,40 @@ function fix_paths()
 	[ ! -d "${BT_download_dir}" ] && echo "[error] download directory is not a dir ${BT_download_dir}" && do_exit
 	[ ! -z "${BT_local_file}" ] && export BT_local_file=$(abspath $BT_local_file)
 	export BT_download_dir=$(abspath $BT_download_dir)
-	env | grep BT_download_dir
+	[ $(bool ${BT_debug}) ] && env | grep BT_download_dir
+}
 
-	[ -z "${BT_sources_dir}" ] && export BT_sources_dir=${BT_working_dir}/src
-	[ ! -d ${BT_sources_dir} ] && echo "[warning] making directory for sources ${BT_sources_dir}"
-	mkdir -pv ${BT_sources_dir}
-	[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit
-	env | grep BT_sources_dir
-
+function fix_sources_paths()
+{
 	if [ ! -z "${BT_src_dir}" ]; then
 		eval BT_src_dir=$BT_src_dir
 		export BT_src_dir
-		env | grep BT_src_dir
+		[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
+	else
+		fix_working_paths
+		[ -z "${BT_sources_dir}" ] && export BT_sources_dir=${BT_working_dir}/src
+		[ ! -d ${BT_sources_dir} ] && echo "[warning] making directory for sources ${BT_sources_dir}"
+		mkdir -pv ${BT_sources_dir}
+		[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit
+		[ $(bool ${BT_debug}) ] && env | grep BT_sources_dir
 	fi
+}
 
+function fix_build_paths()
+{
+	fix_working_paths
 	[ -z "${BT_build_dir}" ] && export BT_build_dir=$BT_working_dir/build/$BT_version
 	[ ! -d ${BT_build_dir} ] && echo "[warning] making directory for building ${BT_build_dir}"
 	mkdir -pv ${BT_build_dir}
 	export BT_build_dir=$BT_build_dir
 	[ ! -d "${BT_build_dir}" ] && echo "[error] build directory is not a dir ${BT_build_dir}" && do_exit
-	env | grep BT_build_dir
+	[ $(bool ${BT_debug}) ] && env | grep BT_build_dir
+}
+
+function setup_sources()
+{
+	fix_sources_paths
+	download
 }
 
 function build()
@@ -418,18 +435,32 @@ function init_build_tools()
 	# up_dir=$(dirname $this_dir)
 	# buildtools_dir=$(thisdir)
 
-	process_options version clean build rebuild module config help dry download working_dir force
+	process_options version clean build rebuild module config help dry download working_dir force debug
 	[ $(bool ${BT_help}) ] && usage
 	check_config_present
 	process_options_config
 	read_config_options
 	reprocess_defined_options ${BT_config_options}
 
-	fix_paths
-	download
-	setup_src_dir
-	process_modules
+	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
+	[ $(bool ${BT_debug}) ] && env | grep BT_version=
+	[ -z "${BT_module}" ] && echo "[w] guessing module name from $PWD" && export BT_module=$(basename $PWD)
+	[ $(bool ${BT_debug}) ] && env | grep BT_module=
 
+	fix_paths
+	if [ $(bool ${BT_clean}) ]; then
+		separator
+		fix_install_paths
+		fix_build_paths
+		echo "[i] removing ${BT_install_dir}"
+		rm -rf ${BT_install_dir}
+		echo "[i] removing ${BT_build_dir}"
+		rm -rf ${BT_build_dir}
+		echo "[i] removing ${BT_working_dir}"
+		rm -rf ${BT_working_dir}
+	fi
+	setup_sources
+	process_modules
 	separator
 	list_options "[i] defined settings:" noundef
 }
@@ -437,8 +468,11 @@ function init_build_tools()
 function run_build()
 {
 	init_build_tools
+
 	if [ $(bool ${BT_build}) ]; then
 		separator
+		fix_install_paths
+		fix_build_paths
 		echo "[i] building..."
 		savedir=$PWD
 		cd ${BT_sources_dir}
@@ -449,15 +483,8 @@ function run_build()
 		fi
 		[ ! -d "${BT_src_dir}" ] && echo "[e] dir "${BT_src_dir}" does not exist" && do_exit
 		cd "${BT_build_dir}"
-		if [ $(bool ${BT_clean}) ]; then
-			echo "[i] removing ${BT_install_dir}"
-			rm -rf ${BT_install_dir}
-			echo "[i] removing ${BT_build_dir}"
-			rm -rf ${BT_build_dir}
-		else
-			if [ ! $(bool ${BT_rebuild}) ]; then
-				[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean. stop." && do_exit
-			fi
+		if [ ! $(bool ${BT_rebuild}) ]; then
+			[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean. stop." && do_exit
 		fi
 		build
 		cd $savedir
