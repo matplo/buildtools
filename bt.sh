@@ -1,6 +1,20 @@
 #!/bin/bash
 
-global_args="$@"
+# how to use this:
+# implement a function build() & execute do_build
+# within build() rely on $BT variables
+# the simplest implementation
+# BT_config=./tmp.cfg
+# touch BT_config
+# source bt.sh "$@"
+# function build()
+# {
+# 	list_options
+# }
+# exec_build_tool
+
+BT_global_args="$@"
+BT_built_in_options="build build_type clean cleanup config debug download dry force help install_dir module module_dir module_paths modules name name rebuild src_dir verbose version working_dir"
 
 function abspath()
 {
@@ -32,7 +46,7 @@ function get_opt_with()
 {
 	local do_echo=
 	local retval=
-	for g in ${global_args}
+	for g in ${BT_global_args}
 	do
 		if [ ! -z $do_echo ] ; then
 			if [[ ${g:0:1} != "-" ]]; then
@@ -50,7 +64,7 @@ function get_opt_with()
 function is_opt_set()
 {
 	local retval=
-	for g in ${global_args}
+	for g in ${BT_global_args}
 	do
 		if [[ ${g:0:1} != "-" ]]; then
 			continue
@@ -94,8 +108,8 @@ function host_pdsf()
 
 function sedi()
 {
-	[ $(os_darwin) ] && sed -i "" -e ${global_args}
-	[ $(os_linux)  ] && sed -i'' -e ${global_args}
+	[ $(os_darwin) ] && sed -i "" -e $@
+	[ $(os_linux)  ] && sed -i'' -e $@
 }
 
 function strip_root_dir()
@@ -347,7 +361,7 @@ function setup_src_dir()
 		else
 			if [ -z "${BT_src_dir}" ]; then
 				echo "[w] local file does not exist? ${local_file}"
-				export BT_src_dir=${BT_working_dir}/${BT_module}_${BT_version}
+				export BT_src_dir=${BT_working_dir}/${BT_name}_${BT_version}
 			fi
 			[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
 		fi
@@ -366,16 +380,19 @@ function fix_working_paths()
 
 function fix_install_paths()
 {
-	[ -z "$BT_install_dir" ] && export BT_install_dir=$PWD/${BT_module}/${BT_version}
-	eval BT_install_dir=$BT_install_dir/${BT_module}/${BT_version}
-	export BT_install_dir
+	if [ -z "${BT_install_dir}" ]; then
+		export BT_install_dir=$PWD/${BT_name}/${BT_version}
+		export BT_install_dir
+	fi
+	#/${BT_name}/${BT_version}
+	eval BT_install_dir=${BT_install_dir}
 	[ $(bool ${BT_debug}) ] && env | grep BT_install_dir
 }
 
 function fix_download_paths()
 {
 	fix_working_paths
-	[ -z "${BT_local_file}" ] && export BT_local_file="$BT_working_dir/downloads/$BT_module.download"
+	[ -z "${BT_local_file}" ] && export BT_local_file="$BT_working_dir/downloads/$BT_name.download"
 	BT_download_dir=$(dirname $BT_local_file)
 	[ ! -d ${BT_download_dir} ] && echo "[warning] making directory for download file ${BT_download_dir}"
 	mkdir -pv ${BT_download_dir}
@@ -435,20 +452,19 @@ function init_build_tools()
 	# up_dir=$(dirname $this_dir)
 	# buildtools_dir=$(thisdir)
 
-	process_options version clean build rebuild module config help dry download working_dir force debug verbose
+	process_options ${BT_built_in_options}
 	[ $(bool ${BT_help}) ] && usage
 	check_config_present
 	process_options_config
 	read_config_options
 	reprocess_defined_options ${BT_config_options}
-	[ $(bool ${BT_rebuild}) ] && export BT_clear="yes" && export BT_build="yes"
+	[ $(bool ${BT_rebuild}) ] && export BT_clean="yes" && export BT_build="yes"
 
 	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
 	[ $(bool ${BT_debug}) ] && env | grep BT_version=
-	[ -z "${BT_module}" ] && echo "[w] guessing module name from $PWD" && export BT_module=$(basename $PWD)
-	[ $(bool ${BT_debug}) ] && env | grep BT_module=
+	[ -z "${BT_name}" ] && echo "[w] guessing module name from $PWD" && export BT_name=$(basename $PWD)
+	[ $(bool ${BT_debug}) ] && env | grep BT_name=
 
-	fix_paths
 	if [ $(bool ${BT_clean}) ]; then
 		separator
 		fix_install_paths
@@ -460,20 +476,26 @@ function init_build_tools()
 		echo "[i] removing ${BT_working_dir}"
 		rm -rf ${BT_working_dir}
 	fi
+	if [ $(bool ${BT_cleanup}) ]; then
+		separator
+		fix_build_paths
+		echo "[i] removing ${BT_build_dir}"
+		rm -rf ${BT_build_dir}
+		echo "[i] removing ${BT_working_dir}"
+		rm -rf ${BT_working_dir}
+	fi
 	setup_sources
 	process_modules
-	separator
-	list_options "[i] defined settings:" noundef
 }
 
 function run_build()
 {
-	init_build_tools
-
 	if [ $(bool ${BT_build}) ]; then
 		separator
 		fix_install_paths
 		fix_build_paths
+		echo "[i] src dir: ${BT_src_dir}"
+		echo "[i] install dir: ${BT_install_dir}"
 		echo "[i] building..."
 		savedir=$PWD
 		cd ${BT_sources_dir}
@@ -492,5 +514,101 @@ function run_build()
 	fi
 }
 
-# implement function build & execute run_build
-# run_build
+function fix_module_paths()
+{
+	fix_install_paths
+	[ -z ${BT_module_dir} ] && export BT_module_dir=${BT_install_dir}/modules/${BT_name}
+	eval BT_module_dir=${BT_module_dir}
+	export BT_module_file=${BT_module_dir}/${BT_version}
+	[ $(bool ${BT_debug}) ] && env | grep BT_name_
+	mkdir -pv ${BT_module_dir}
+}
+
+function make_module()
+{
+	if [ $(bool ${BT_module}) ]; then
+		separator
+		fix_module_paths
+		[ ! -d ${BT_module_dir} ] && echo "[error] module folder does not exist." && do_exit
+
+		echo "[i] modfile: "${BT_module_file}
+		rm -rf ${BT_module_file}
+		touch ${BT_module_file}
+
+cat>>${BT_module_file}<<EOL
+#%Module
+proc ModulesHelp { } {
+    global version
+    puts stderr "   Setup <name> <version>"
+}
+
+set     version <version>
+setenv  <name>DIR <dir>
+set-alias <name>_cd "cd <dir>"
+EOL
+
+		echo 'setenv <name_to_upper>_ROOT <dir>' >> ${BT_module_file}
+		echo 'setenv <name_to_upper>_DIR <dir>' >> ${BT_module_file}
+		echo 'setenv <name_to_upper>DIR <dir>' >> ${BT_module_file}
+
+		if [ -d ${BT_install_dir}/lib ]; then
+cat >>${BT_module_file}<<EOL
+prepend-path LD_LIBRARY_PATH <dir>/lib
+prepend-path DYLD_LIBRARY_PATH <dir>/lib
+EOL
+		fi
+
+		if [ -d ${BT_install_dir}/lib64 ]; then
+cat >>${BT_module_file}<<EOL
+prepend-path LD_LIBRARY_PATH <dir>/lib64
+prepend-path DYLD_LIBRARY_PATH <dir>/lib64
+EOL
+		fi
+
+		if [ ! -z ${has_pythonlib} ]; then
+		if [ -d ${BT_install_dir}/lib64 ]; then
+cat >>${BT_module_file}<<EOL
+prepend-path PYTHONPATH <dir>/lib64/${has_pythonlib}
+EOL
+		fi
+		if [ -d ${BT_install_dir}/lib ]; then
+cat >>${BT_module_file}<<EOL
+prepend-path PYTHONPATH <dir>/lib/${has_pythonlib}
+EOL
+		fi
+		fi
+
+		[ -d ${BT_install_dir}/bin ] && echo "prepend-path PATH <dir>/bin" >> ${BT_module_file}
+
+		sedi "s|<dir>|${BT_install_dir}|g" ${BT_module_file}
+		sedi "s|<name_to_upper>|$(echo ${BT_name} | awk '{print toupper($0)}')|g" ${BT_module_file}
+		sedi "s|<name>|${BT_name}|g" ${BT_module_file}
+		sedi "s|<version>|${BT_version}|g" ${BT_module_file}
+
+		echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
+		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
+		for mp in $mpaths
+		do
+		        echo "module use $mp" >> ${BT_module_file}
+		done
+
+		#loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file} | grep -v use.own`
+		loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
+		for m in $loaded
+		do
+		        #echo "prereq $m" >> ${BT_module_file}
+		        echo "module load $m" >> ${BT_module_file}
+		done
+		echo "}" >> ${BT_module_file}
+
+	fi
+}
+
+function exec_build_tool()
+{
+	init_build_tools
+	separator
+	list_options "[i] defined settings:" noundef
+	run_build
+	make_module
+}
