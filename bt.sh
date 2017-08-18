@@ -435,7 +435,7 @@ function init_build_tools()
 	# up_dir=$(dirname $this_dir)
 	# buildtools_dir=$(thisdir)
 
-	process_options version clean build rebuild module config help dry download working_dir force debug
+	process_options version clean build rebuild module config help dry download working_dir force debug verbose
 	[ $(bool ${BT_help}) ] && usage
 	check_config_present
 	process_options_config
