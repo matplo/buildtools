@@ -441,7 +441,7 @@ function init_build_tools()
 	process_options_config
 	read_config_options
 	reprocess_defined_options ${BT_config_options}
-	[ ! -z ${BT_rebuild} ] && export BT_clear=yes && export BT_rebuild=yes
+	[ $(bool ${BT_rebuild}) ] && export BT_clear="yes" && export BT_build="yes"
 
 	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
 	[ $(bool ${BT_debug}) ] && env | grep BT_version=
