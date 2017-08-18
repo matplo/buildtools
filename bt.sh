@@ -441,6 +441,7 @@ function init_build_tools()
 	process_options_config
 	read_config_options
 	reprocess_defined_options ${BT_config_options}
+	[ ! -z ${BT_rebuild} ] && export BT_clear=yes && export BT_rebuild=yes
 
 	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
 	[ $(bool ${BT_debug}) ] && env | grep BT_version=
@@ -483,9 +484,9 @@ function run_build()
 		fi
 		[ ! -d "${BT_src_dir}" ] && echo "[e] dir "${BT_src_dir}" does not exist" && do_exit
 		cd "${BT_build_dir}"
-		if [ ! $(bool ${BT_rebuild}) ]; then
-			[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean. stop." && do_exit
-		fi
+		# if [ ! $(bool ${BT_rebuild}) ]; then
+		# 	[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean --build. stop." && do_exit
+		# fi
 		build
 		cd $savedir
 	fi
