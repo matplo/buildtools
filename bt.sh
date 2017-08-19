@@ -562,10 +562,13 @@ function run_build()
 		cd ${BT_sources_dir}
 		if [ ! -d "${BT_src_dir}" ]; then
 			echo "[i] unpacking..."
-			[ ! -e ${BT_local_file} ] && echo "[e] file ${BT_local_file} does not exist" && do_exit
-			tar zxvf ${BT_local_file} 2>&1 > /dev/null
+			if [ -f "${BT_local_file}" ]; then
+				tar zxvf ${BT_local_file} 2>&1 > /dev/null
+			else
+				echo "[e] file ${BT_local_file} does not exist" && do_exit
+			fi
 		fi
-		[ ! -d "${BT_src_dir}" ] && echo "[e] dir "${BT_src_dir}" does not exist" && do_exit
+		[ ! -d "${BT_src_dir}" ] && echo "[e] src directory "${BT_src_dir}" does not exist" && do_exit
 		cd "${BT_build_dir}"
 		# if [ ! $(bool ${BT_rebuild}) ]; then
 		# 	[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean --build. stop." && do_exit
