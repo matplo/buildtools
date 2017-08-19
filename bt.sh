@@ -21,7 +21,7 @@
 # exec_build_tool
 
 BT_global_args="$@"
-BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir module module_dir module_paths modules name now rebuild src_dir verbose version working_dir"
+BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir module module_dir module_paths modules name now rebuild script src_dir verbose version working_dir"
 BT_error_code=1
 
 function abspath()
@@ -540,10 +540,18 @@ function init_build_tools()
 
 	process_options ${BT_built_in_options}
 	[ $(bool ${BT_help}) ] && usage
-	check_config_present
-	process_options_config
-	read_config_options
-	reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
+	if [ -z ${BT_script} ]; then
+		check_config_present
+		process_options_config
+		read_config_options
+		reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
+	else
+		if [ -f ${BT_script} ]; then
+			source ${BT_script}
+		else
+			echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
+		fi
+	fi
 	[ $(bool ${BT_rebuild}) ] && export BT_clean="yes" && export BT_build="yes"
 
 	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
@@ -695,3 +703,20 @@ function exec_build_tool()
 	separator " . "
 	do_exit
 }
+
+if [ ! -z $1 ]; then
+	separator "running with $1"
+	eval $1
+fi
+
+if [ -z ${BT_script} ]; then
+	separator "config mode"
+else
+	separator "script mode"
+	if [ -f ${BT_script} ]; then
+		source ${BT_script}
+		exec_build_tool
+	else
+		echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
+	fi
+fi
