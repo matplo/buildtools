@@ -14,7 +14,7 @@
 # exec_build_tool
 
 BT_global_args="$@"
-BT_built_in_options="build build_type clean cleanup config debug download dry force help install_dir module module_dir module_paths modules name name rebuild src_dir verbose version working_dir"
+BT_built_in_options="build build_type clean cleanup config debug download dry force help install_dir module module_dir module_paths modules name rebuild src_dir verbose version working_dir"
 
 function abspath()
 {
@@ -151,8 +151,13 @@ function config_value()
 	local _retval=""
 	#"[error]querying-an-unset-config-setting:${_what}"
 	local _config=${BT_config}
+	if [ -z ${BT_config} ]; then
+		echo ${_retval}
+		return
+	fi
 	if [ ! -f ${_config} ]; then
 		echo ${_retval}
+		return
 	fi
 	if [ ! -z ${_what} ]; then
 		local _nlines=$(cat ${_config} | wc -l)
@@ -160,9 +165,11 @@ function config_value()
 		for ln in $(seq 1 ${_nlines})
 		do
 			_line=$(head -n ${ln} ${_config} | tail -n 1)
-			_pack=$(echo ${_line} | grep ${_what} | cut -f 1 -d "=" | sed 's/^ *//g' | sed 's/ *$//g')
-			_val=$(echo ${_line} | grep ${_what} | cut -f 2 -d "=" | sed 's/^ *//g' | sed 's/ *$//g' | tr -d '\n')
-			[ "${_pack}" == "${_what}" ] && _retval=${_val}
+			if [ ! -z "$(echo ${_line} | grep ${_what})" ]; then
+				_pack=$(echo ${_line} | grep ${_what} | cut -f 1 -d "=" | sed 's/^ *//g' | sed 's/ *$//g')
+				_val=$(echo ${_line} | grep ${_what} | cut -f 2 -d "=" | sed 's/^ *//g' | sed 's/ *$//g' | tr -d '\n')
+				[ "${_pack}" == "${_what}" ] && _retval=${_val}
+			fi
 		done
 	fi
 	echo ${_retval}
@@ -226,11 +233,45 @@ function process_options_config()
 	rm -rf .tmp.sh
 }
 
+function get_var_value()
+{
+	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	touch .tmp.sh
+	echo "export BT_get_var_value_return=\$$1" >> .tmp.sh
+	source .tmp.sh
+	echo $BT_get_var_value_return
+	BT_get_var_value_return=""
+	#cp .tmp.sh peek.sh
+	rm -rf .tmp.sh
+}
+
+function is_BT_set()
+{
+	local _var="$1"
+	[ ${_var:0:3} != "BT_" ] && _var="BT_${1}"
+	if [ -z ${_var+x} ]; then
+		echo "${_var} is unset"
+	else
+		echo "${_var} is set to ${_tmp}"
+		echo "val="$(get_var_value ${_var})
+	fi
+}
+
 function read_config_options()
 {
-	for o in ${BT_config_options}
+	for o in ${BT_config_options} ${BT_built_in_options}
 	do
-		export BT_${o}="$(config_value $o)"
+		local _defined=$(get_var_value BT_${o})
+		# echo "[i] checking [${o}] defined ${_defined}"
+		if [ -z ${_defined} ]; then
+			export BT_${o}="$(config_value $o)"
+			_defined=$(get_var_value BT_${o})
+			if [ ! -z ${_defined} ]; then
+				echo $(padding "   [${o}] " "-" 15 right)" : "${_defined}
+			fi
+		else
+			echo $(padding "   [${o}] " "-" 15 right)" : "${_defined}
+		fi
 	done
 }
 
@@ -257,7 +298,7 @@ function bool()
 
 function is_set()
 {
-	[ -z "$1" ] && echo "" && return
+	[ -z ${1+x} ] && echo "" && return
 	[ "$1" == "no" ] && echo "" && return
 	[ "$1" == "yes" ] && [ -z "$1" ] && echo "" && return
 	echo "$1"
@@ -283,7 +324,7 @@ function list_options()
 
 function process_modules()
 {
-	separator
+	separator "use/load modules"
 	for p in ${BT_module_paths}
 	do
 		local _path
@@ -302,8 +343,22 @@ function process_modules()
 function separator()
 {
 	echo
-	echo "---------------"
+	echo $(padding "   [${1}] " "-" 30 center)
 	echo
+}
+
+function padding ()
+{
+	CONTENT="${1}";
+	PADDING="${2}";
+	LENGTH="${3}";
+	TRG_EDGE="${4}";
+	case "${TRG_EDGE}" in
+		left) echo ${CONTENT} | sed -e :a -e 's/^.\{1,'${LENGTH}'\}$/&\'${PADDING}'/;ta'; ;;
+		right) echo ${CONTENT} | sed -e :a -e 's/^.\{1,'${LENGTH}'\}$/\'${PADDING}'&/;ta'; ;;
+		center) echo ${CONTENT} | sed -e :a -e 's/^.\{1,'${LENGTH}'\}$/'${PADDING}'&'${PADDING}'/;ta'
+	esac
+	return ${RET__DONE};
 }
 
 function do_exit()
@@ -318,7 +373,7 @@ function download()
 		fix_download_paths
 		savedir=$PWD
 		cd ${BT_working_dir}
-		separator
+		separator download
 		echo "[i] download..."
 		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 		[ -z "${BT_working_dir}" ] && echo " - [error] working_dir not specified [${BT_working_dir}]" && do_exit
@@ -347,7 +402,7 @@ function setup_src_dir()
 	if [ $(bool ${BT_download}) ]; then
 		savedir=$PWD
 		cd ${BT_working_dir}
-		separator
+		separator "setup source"
 		echo "[i] setup unpack_dir..."
 		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
@@ -441,8 +496,22 @@ function build()
 	echo "[i] call to specific tool here..."
 }
 
+function do_cleanup()
+{
+	if [ $(bool ${BT_cleanup}) ]; then
+		separator cleanup
+		fix_build_paths
+		echo "[i] removing ${BT_build_dir}"
+		rm -rf ${BT_build_dir}
+		echo "[i] removing ${BT_working_dir}"
+		rm -rf ${BT_working_dir}
+	fi
+}
+
 function init_build_tools()
 {
+	separator " init "
+
 	export BT_save_dir=$PWD
 	export BT_config_dir=$(dirname $(abspath ${BT_config}))
 	export BT_now=$(date +%Y-%m-%d_%H_%M_%S)
@@ -457,7 +526,7 @@ function init_build_tools()
 	check_config_present
 	process_options_config
 	read_config_options
-	reprocess_defined_options ${BT_config_options}
+	reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
 	[ $(bool ${BT_rebuild}) ] && export BT_clean="yes" && export BT_build="yes"
 
 	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now
@@ -466,19 +535,11 @@ function init_build_tools()
 	[ $(bool ${BT_debug}) ] && env | grep BT_name=
 
 	if [ $(bool ${BT_clean}) ]; then
-		separator
+		separator clean
 		fix_install_paths
 		fix_build_paths
 		echo "[i] removing ${BT_install_dir}"
 		rm -rf ${BT_install_dir}
-		echo "[i] removing ${BT_build_dir}"
-		rm -rf ${BT_build_dir}
-		echo "[i] removing ${BT_working_dir}"
-		rm -rf ${BT_working_dir}
-	fi
-	if [ $(bool ${BT_cleanup}) ]; then
-		separator
-		fix_build_paths
 		echo "[i] removing ${BT_build_dir}"
 		rm -rf ${BT_build_dir}
 		echo "[i] removing ${BT_working_dir}"
@@ -491,7 +552,7 @@ function init_build_tools()
 function run_build()
 {
 	if [ $(bool ${BT_build}) ]; then
-		separator
+		separator "build"
 		fix_install_paths
 		fix_build_paths
 		echo "[i] src dir: ${BT_src_dir}"
@@ -527,7 +588,7 @@ function fix_module_paths()
 function make_module()
 {
 	if [ $(bool ${BT_module}) ]; then
-		separator
+		separator "make module"
 		fix_module_paths
 		[ ! -d ${BT_module_dir} ] && echo "[error] module folder does not exist." && do_exit
 
@@ -607,8 +668,9 @@ EOL
 function exec_build_tool()
 {
 	init_build_tools
-	separator
-	list_options "[i] defined settings:" noundef
+	[ ! -z ${BT_debug} ] && separator " debug/list " && list_options "[i] defined settings:" noundef
 	run_build
 	make_module
+	do_cleanup
+	separator " . "
 }
