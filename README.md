@@ -20,6 +20,7 @@ source bt.sh "$@" --build
 function build()
 {
 	separator "cmake/make/other commands here"
+	list_options "[i] defined settings:" noundef
 }
 exec_build_tool
 ```
