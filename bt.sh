@@ -4,17 +4,25 @@
 # implement a function build() & execute do_build
 # within build() rely on $BT variables
 # the simplest implementation
+# !/bin/bash
+# cd $(dirname $BASH_SOURCE)
+# # cp -v ~/devel/buildtools/bt.sh .
+# [ ! -f ./bt.sh ] && wget https://raw.github.com/matplo/buildtools/master/bt.sh
+# [ ! -f ./bt.sh ] && echo "[i] no bt.sh - stop here." && exit 1
 # BT_config=./tmp.cfg
-# touch $BT_config
-# source bt.sh "$@"
+# echo "clean=yes" > $BT_config
+# echo "cleanup=yes" >> $BT_config
+# echo "ignore_errors=yes" >> $BT_config
+# source bt.sh "$@" --build
 # function build()
 # {
-# 	list_options
+# 	separator "cmake/make/other commands here"
 # }
 # exec_build_tool
 
 BT_global_args="$@"
-BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help install_dir module module_dir module_paths modules name now rebuild src_dir verbose version working_dir"
+BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir module module_dir module_paths modules name now rebuild src_dir verbose version working_dir"
+BT_error_code=1
 
 function abspath()
 {
@@ -285,8 +293,8 @@ function usage()
 
 function check_config_present()
 {
-	[ -z ${BT_config} ] && echo "[e] no config file specified."  && usage && do_exit
-	[ ! -f "${BT_config}" ] && echo "[e] config file ${BT_config} not found."  && usage && do_exit
+	[ -z ${BT_config} ] && echo "[error] no config file specified."  && usage && do_exit $BT_error_code
+	[ ! -f "${BT_config}" ] && echo "[error] config file ${BT_config} not found."  && usage && do_exit $BT_error_code
 }
 
 function bool()
@@ -343,7 +351,7 @@ function process_modules()
 function separator()
 {
 	echo
-	echo $(padding "   [${1}] " "-" 30 center)
+	echo $(padding "   [${1}] " "-" 40 center)
 	echo
 }
 
@@ -363,8 +371,17 @@ function padding ()
 
 function do_exit()
 {
-	cd $BT_save_dir
-	exit 1
+	if [ -z $1 ]; then
+		cd $BT_save_dir
+		exit 0
+	else
+		if [ $(bool ${BT_ignore_errors}) ]; then
+			echo "[warning] error ignored - continuing..."
+		else
+			cd $BT_save_dir
+			exit $1
+		fi
+	fi
 }
 
 function download()
@@ -376,12 +393,12 @@ function download()
 		separator download
 		echo "[i] download..."
 		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
-		[ -z "${BT_working_dir}" ] && echo " - [error] working_dir not specified [${BT_working_dir}]" && do_exit
-		[ ! -d "${BT_working_dir}" ] && echo " - [error] working_dir not a directory [${BT_working_dir}]" && do_exit
+		[ -z "${BT_working_dir}" ] && echo "[error] working_dir not specified [${BT_working_dir}]" && do_exit $BT_error_code
+		[ ! -d "${BT_working_dir}" ] && echo "[error] working_dir not a directory [${BT_working_dir}]" && do_exit $BT_error_code
 		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
-		[ -z "${BT_local_file}" ] && echo " - [error] local_file not specified [${BT_local_file}]" && do_exit
+		[ -z "${BT_local_file}" ] && echo "[error] local_file not specified [${BT_local_file}]" && do_exit $BT_error_code
 		[ $(bool ${BT_debug}) ] && env | grep BT_remote_file
-		[ -z "${BT_remote_file}" ] && echo " - [error] remote file not specified [${BT_remote_file}]" && do_exit
+		[ -z "${BT_remote_file}" ] && echo "[error] remote file not specified [${BT_remote_file}]" && do_exit $BT_error_code
 		if [ -f "${BT_local_file}" ]; then
 			if [ ${BT_force} ]; then
 				[ -f "${BT_local_file}" ] && rm -fv ${BT_local_file}
@@ -409,8 +426,8 @@ function setup_src_dir()
 		if [ -f "${BT_local_file}" ]; then
 			local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
 			[ -z ${_local_dir} ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
-			[ ${_local_dir} == "." ] && echo "[e] bad _local_dir ${_local_dir}. stop." && do_exit
-			[ -z ${_local_dir} ] && echo "[e] bad _local_dir EMPTY. stop." && do_exit
+			[ ${_local_dir} == "." ] && echo "[error] bad _local_dir ${_local_dir}. stop." && do_exit $BT_error_code
+			[ -z ${_local_dir} ] && echo "[error] bad _local_dir EMPTY. stop." && do_exit $BT_error_code
 			export BT_src_dir=${BT_sources_dir}/${_local_dir}
 			echo "[i] setup unpack_dir to ${BT_src_dir}"
 		else
@@ -430,7 +447,7 @@ function fix_working_paths()
 	export BT_working_dir=$(abspath $BT_working_dir)
 	[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 	[ ! -d "${BT_working_dir}" ] && mkdir -pv $BT_working_dir
-	[ ! -d "${BT_working_dir}" ] && echo " - [error] working_dir not a directory [${BT_working_dir}]" && do_exit
+	[ ! -d "${BT_working_dir}" ] && echo "[error] working_dir not a directory [${BT_working_dir}]" && do_exit $BT_error_code
 }
 
 function fix_install_paths()
@@ -452,7 +469,7 @@ function fix_download_paths()
 	[ ! -d ${BT_download_dir} ] && echo "[warning] making directory for download file ${BT_download_dir}"
 	mkdir -pv ${BT_download_dir}
 	export BT_download_dir=$BT_download_dir
-	[ ! -d "${BT_download_dir}" ] && echo "[error] download directory is not a dir ${BT_download_dir}" && do_exit
+	[ ! -d "${BT_download_dir}" ] && echo "[error] download directory is not a dir ${BT_download_dir}" && do_exit $BT_error_code
 	[ ! -z "${BT_local_file}" ] && export BT_local_file=$(abspath $BT_local_file)
 	export BT_download_dir=$(abspath $BT_download_dir)
 	[ $(bool ${BT_debug}) ] && env | grep BT_download_dir
@@ -469,7 +486,7 @@ function fix_sources_paths()
 		[ -z "${BT_sources_dir}" ] && export BT_sources_dir=${BT_working_dir}/src
 		[ ! -d ${BT_sources_dir} ] && echo "[warning] making directory for sources ${BT_sources_dir}"
 		mkdir -pv ${BT_sources_dir}
-		[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit
+		[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit $BT_error_code
 		[ $(bool ${BT_debug}) ] && env | grep BT_sources_dir
 	fi
 }
@@ -481,7 +498,7 @@ function fix_build_paths()
 	[ ! -d ${BT_build_dir} ] && echo "[warning] making directory for building ${BT_build_dir}"
 	mkdir -pv ${BT_build_dir}
 	export BT_build_dir=$BT_build_dir
-	[ ! -d "${BT_build_dir}" ] && echo "[error] build directory is not a dir ${BT_build_dir}" && do_exit
+	[ ! -d "${BT_build_dir}" ] && echo "[error] build directory is not a dir ${BT_build_dir}" && do_exit $BT_error_code
 	[ $(bool ${BT_debug}) ] && env | grep BT_build_dir
 }
 
@@ -561,17 +578,17 @@ function run_build()
 		savedir=$PWD
 		cd ${BT_sources_dir}
 		if [ ! -d "${BT_src_dir}" ]; then
-			echo "[i] unpacking..."
 			if [ -f "${BT_local_file}" ]; then
+				echo "[i] unpacking... [${BT_local_file}]"
 				tar zxvf ${BT_local_file} 2>&1 > /dev/null
 			else
-				echo "[e] file ${BT_local_file} does not exist" && do_exit
+				echo "[error] local file [${BT_local_file}] does not exist" && do_exit $BT_error_code
 			fi
 		fi
-		[ ! -d "${BT_src_dir}" ] && echo "[e] src directory "${BT_src_dir}" does not exist" && do_exit
+		[ ! -d "${BT_src_dir}" ] && echo "[error] src directory "${BT_src_dir}" does not exist" && do_exit $BT_error_code
 		cd "${BT_build_dir}"
 		# if [ ! $(bool ${BT_rebuild}) ]; then
-		# 	[ -e ${BT_install_dir} ] && echo "[e] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean --build. stop." && do_exit
+		# 	[ -e ${BT_install_dir} ] && echo "[error] ${BT_install_dir} exists. remove it before running --build or use --rebuild or --clean --build. stop." && do_exit $BT_error_code
 		# fi
 		build
 		cd $savedir
@@ -593,7 +610,7 @@ function make_module()
 	if [ $(bool ${BT_module}) ]; then
 		separator "make module"
 		fix_module_paths
-		[ ! -d ${BT_module_dir} ] && echo "[error] module folder does not exist." && do_exit
+		[ ! -d ${BT_module_dir} ] && echo "[error] module folder does not exist." && do_exit $BT_error_code
 
 		echo "[i] modfile: "${BT_module_file}
 		rm -rf ${BT_module_file}
@@ -676,4 +693,5 @@ function exec_build_tool()
 	make_module
 	do_cleanup
 	separator " . "
+	do_exit
 }
