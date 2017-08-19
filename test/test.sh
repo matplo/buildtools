@@ -2,7 +2,7 @@
 
 cd $(dirname $BASH_SOURCE)
 BT_config=./test.cfg
-source ../bt.sh "$@" --download --build
+source ../bt.sh "$@" --download --build --module --cleanup
 
 function build()
 {
@@ -17,5 +17,4 @@ function build()
     make -j $(n_cores)
     make install
 }
-
-run_build
+exec_build_tool
