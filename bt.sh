@@ -714,6 +714,7 @@ if [ -z ${BT_script} ]; then
 else
 	separator "script mode"
 	if [ -f ${BT_script} ]; then
+		export BT_script_dir=$(abspath ${BT_script})
 		source ${BT_script}
 		exec_build_tool
 	else
