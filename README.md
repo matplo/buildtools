@@ -28,10 +28,11 @@ exec_build_tool
 ```
 
 ## option 2
- - implement a function build() & execute do_build in a script; you will need to define some env variables there and call bt.sh with BT_script=<script.sh>
+ - implement a function build() within a script and define some env variables there in
+ - then call bt.sh with BT_script=<script.sh>
 
 ```bash
-$ ./bt.sh BT_script=build_fastjet_script.sh --build --download --module
+$ ./bt.sh BT_script=build_fastjet_script.sh --build --download --module --cleanup
 ```
 
 - note the --download is needed but the download will `wget` only once unless --force is given or BT_force set
