@@ -7,7 +7,7 @@ generic all-in-bash (+basic utils use) scripts to assist building any package (l
  - the simplest implementation - a bash script (note: it could have been made shorter...)
 
 ```bash
-!/bin/bash
+#!/bin/bash
 cd $(dirname $BASH_SOURCE)
 # cp -v ~/devel/buildtools/bt.sh .
 [ ! -f ./bt.sh ] && wget https://raw.github.com/matplo/buildtools/master/bt.sh
