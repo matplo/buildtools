@@ -306,17 +306,88 @@ function read_config_options()
 	done
 }
 
+function tokenize_string()
+{
+	local _delim=${2}
+	local _s=${1}
+	local _tlen=${#_delim}
+	local _len=${#_s}
+	local _n=0
+	local _sublen=0
+	local _marks=
+	local _nmarks=0
+	local _ret_array_name="_tokenize_string_array"
+	[ ! -z ${3} ] && _ret_array_name=${3}
+	local _escape_space=","
+	[ ! -z ${4} ] && _escape_space=${4}
+	for _pos in $(seq 0 ${_len})
+	do
+		local _c=${_s:${_pos}:${_tlen}}
+		if [ "${_c}" == "${_delim}" ]; then
+			_nmarks=$((_nmarks+1))
+			_last_pos=${_pos}
+			if [ -z "${_marks}" ]; then
+				_marks="${_pos}"
+			else
+				_marks="${_marks} ${_pos}"
+			fi
+		fi
+	done
+	if [ ! -z "${_marks}" ]; then
+		_nmarks=$((_nmarks+1))
+		_marks="${_marks} ${_pos}"
+	fi
+
+	local _retval="local ${_ret_array_name}=("
+	for n in $(seq 1 $((_nmarks+1)))
+	do
+		local _p0=$(echo ${_marks} | cut -f ${n} -d " ")
+		local _p1=$(echo ${_marks} | cut -f $((n+1)) -d " ")
+		[ -z "${_p1}" ] && break
+		#echo '"${_s:${_p0}:$((_p1-_p0))}${_separator}"'
+		if [ $n != "1" ]; then
+			_retval="${_retval} "
+		fi
+		local _val=${_s:${_p0}:$((_p1-_p0))}
+		_val=$(echo ${_val} | sed 's| |${_escape_space}|g')
+		_retval="${_retval} '${_val}'"
+	done
+	_retval="${_retval})"
+	echo ${_retval}
+}
+
+function get_last()
+{
+	for l in ${1}; do true; done;
+	echo $l
+}
+
+function count_in_string()
+{
+	local _var=${1}
+	local _needle=$(get_last "$@")
+	echo ${_needle}
+	[ -z ${_var} ] && echo -1 && return
+	[ -z ${_needle} ] && echo -1 && return
+	local _number_of_occurrences=$(echo ${_var} | grep -o ${_needle}| wc -l)
+	echo "    counted ${_needle} ${_number_of_occurrences}"
+}
+
 function process_user_short_options()
 {
-	for o in ${BT_global_args}
+	local _arr_name="_arr"
+	local _escape_space=","
+	_cstring=$(tokenize_string "${BT_global_args}" "--" ${_arr_name} ${_escape_space})
+	eval ${_cstring}
+	for o in ${_arr[@]}
 	do
 		if [ ${o:0:2} == "--" ]; then
 			local _val=$(echo ${o} | cut -f 2 -d "=")
-			[ ${_val} == ${o} ] && _val=""
+			[ ${_val} == "${o}" ] && _val=""
 			local _name=$(echo ${o} | cut -f 1 -d "=")
 			local _len="${#_name}"
 			_name=${_name:2:${_len}}
-			eval BT_${_name}=${_val}
+			eval BT_${_name}=\"$(echo ${_val} | sed 's|${_escape_space}| |g')\"
 			export BT_${_name}
 		fi
 	done
