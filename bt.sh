@@ -21,7 +21,7 @@
 # exec_build_tool
 
 BT_global_args="$@"
-BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild script src_dir verbose version working_dir"
+BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild remote_file script src_dir verbose version working_dir"
 BT_error_code=1
 
 function abspath()
