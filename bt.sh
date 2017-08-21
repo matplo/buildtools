@@ -311,6 +311,7 @@ function usage()
 	#echo "[i] usage: $(basename $BASH_SOURCE) --config <config_file> [--clean] [--version] [--build] [--rebuild] [--module] [--help] [--dry]"
 	echo "[i] usage example: --config <config_file> --download --build"
 	echo "    see more at: https://github.com/matplo/buildtools"
+	export BT_help="yes"
 	show_options all
 	separator " . "
 	do_exit 0
@@ -787,10 +788,15 @@ function exec_build_tool()
 }
 
 if [ ! -z $1 ]; then
+	if [ "$1" == "--help" ]; then
+		usage
+	fi
 	separator "running with $1"
 	if [ ${1:0:2} == "BT" ]; then
 		eval $1
 	fi
+else
+	usage
 fi
 
 if [ -z ${BT_script} ]; then
