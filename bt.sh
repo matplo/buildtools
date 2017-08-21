@@ -269,9 +269,9 @@ function is_BT_set()
 function echo_padded_var()
 {
 	if [ ! -z {$1_x} ]; then
-		echo $(padding "   [${1}] " "-" 15 right)" : "$(get_var_value ${1})
+		echo $(padding "   [${1}] " "-" 20 right)" : "$(get_var_value ${1})
 	else
-		echo $(padding "   [${1}] " "-" 15 right)" : UNDEFINED"
+		echo $(padding "   [${1}] " "-" 20 right)" : UNDEFINED"
 	fi
 }
 
@@ -279,10 +279,10 @@ function echo_padded_BT_var()
 {
 	local _defined=$(get_var_value BT_${1})
 	if [ "${2}" == "all" ]; then
-		echo $(padding "   [${1}] " "-" 15 right)" : "${_defined}
+		echo $(padding "   [${1}] " "-" 20 right)" : "${_defined}
 	else
 		if [ ! -z ${_defined} ]; then
-			echo $(padding "   [${1}] " "-" 15 right)" : "${_defined}
+			echo $(padding "   [${1}] " "-" 20 right)" : "${_defined}
 		fi
 	fi
 }
@@ -306,11 +306,29 @@ function read_config_options()
 	done
 }
 
+function process_user_short_options()
+{
+	for o in ${BT_global_args}
+	do
+		if [ ${o:0:2} == "--" ]; then
+			local _val=$(echo ${o} | cut -f 2 -d "=")
+			[ ${_val} == ${o} ] && _val=""
+			local _name=$(echo ${o} | cut -f 1 -d "=")
+			local _len="${#_name}"
+			_name=${_name:2:${_len}}
+			eval BT_${_name}=${_val}
+			export BT_${_name}
+		fi
+	done
+}
+
 function usage()
 {
 	#echo "[i] usage: $(basename $BASH_SOURCE) --config <config_file> [--clean] [--version] [--build] [--rebuild] [--module] [--help] [--dry]"
 	echo "[i] usage example: --config <config_file> --download --build"
 	echo "    see more at: https://github.com/matplo/buildtools"
+	process_user_short_options
+	process_options "${BT_built_in_options}"
 	export BT_help="yes"
 	show_options all
 	separator " . "
@@ -587,7 +605,6 @@ function do_cleanup()
 function init_build_tools()
 {
 	separator " init "
-
 	export BT_save_dir=$PWD
 	export BT_config_dir=$(dirname $(abspath ${BT_config}))
 	export BT_now=$(date +%Y-%m-%d_%H_%M_%S)
@@ -597,6 +614,7 @@ function init_build_tools()
 	# up_dir=$(dirname $this_dir)
 	# buildtools_dir=$(thisdir)
 
+	process_user_short_options
 	process_options ${BT_built_in_options}
 	[ $(bool ${BT_help}) ] && usage
 	if [ -z ${BT_script} ]; then
@@ -769,9 +787,12 @@ EOL
 function show_options()
 {
 	separator "show options"
-	for o in ${BT_built_in_options}
+	local _all_opts=$(env | grep BT_ | sed 's|UNDEFINED_||g' | cut -f 1 -d "=" | sort | uniq)
+	#echo ${_all_opts}
+	#for o in ${BT_built_in_options}
+	for o in ${_all_opts}
 	do
-		echo_padded_BT_var ${o} ${1}
+		echo_padded_BT_var ${o:3:${#o}} ${1}
 	done
 }
 
