@@ -21,7 +21,7 @@
 # exec_build_tool
 
 BT_global_args="$@"
-BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir module module_dir module_paths modules name now rebuild script src_dir verbose version working_dir"
+BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild script src_dir verbose version working_dir"
 BT_error_code=1
 
 function abspath()
@@ -453,7 +453,10 @@ function fix_working_paths()
 function fix_install_paths()
 {
 	if [ -z "${BT_install_dir}" ]; then
-		export BT_install_dir=$PWD/${BT_name}/${BT_version}
+		if [ -z "{BT_install_prefix}" ]; then
+			export BT_install_prefix=$PWD
+		fi
+		export BT_install_dir=${BT_install_prefix}/${BT_name}/${BT_version}
 		export BT_install_dir
 	fi
 	#/${BT_name}/${BT_version}
