@@ -574,7 +574,7 @@ function download()
 		[ "x${BT_working_dir}" == "x" ] && error "working_dir not specified [${BT_working_dir}]" && do_exit ${BT_error_code}
 		[ ! -d "${BT_working_dir}" ] && error "working_dir not a directory [${BT_working_dir}]" && do_exit ${BT_error_code}
 		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
-		[ "x${BT_local_file}" =="x" ] && error "local_file not specified [${BT_local_file}]" && do_exit ${BT_error_code}
+		[ "x${BT_local_file}" == "x" ] && error "local_file not specified [${BT_local_file}]" && do_exit ${BT_error_code}
 		[ $(bool ${BT_debug}) ] && env | grep BT_remote_file
 		[ "x${BT_remote_file}" == "x" ] && error "remote file not specified [${BT_remote_file}]" && do_exit ${BT_error_code}
 		if [ -f "${BT_local_file}" ]; then
