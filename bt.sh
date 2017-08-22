@@ -732,7 +732,7 @@ function check_sources_paths()
 function fix_build_paths()
 {
 	fix_working_paths
-	[ "x${BT_build_dir}" == "x" ] && export BT_build_dir=${BT_working_dir}/build/${BT_version}
+	[ "x${BT_build_dir}" == "x" ] && export BT_build_dir=${BT_working_dir}/build/${name}/${BT_version}
 	export BT_build_dir=${BT_build_dir}
 }
 
