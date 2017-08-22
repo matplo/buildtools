@@ -632,7 +632,7 @@ function setup_src_dir()
 		[ ${_local_dir} == "." ] && error "bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
 		[ -z ${_local_dir} ] && error "bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
 		export BT_src_dir=$(resolve_directory ${BT_sources_dir}/${_local_dir})
-		echo "[i] setup unpack_dir to ${BT_src_dir}"
+		echo "[i] setup unpack_dir based on local file to ${BT_src_dir}"
 	else
 		if [ -z "${BT_src_dir}" ]; then
 			export BT_src_dir=$(resolve_directory ${BT_sources_dir}/${BT_name}/${BT_version})
