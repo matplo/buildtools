@@ -492,6 +492,8 @@ function process_modules()
 				local _retval=$(module load ${m} 2>&1)
 				if [ "x${_retval}" != "x" ]; then
 					warning "something went wrong when loading module [${m}]"
+				else
+					module load ${m}
 				fi
 			else
 				warning "module not found [${m}]"
