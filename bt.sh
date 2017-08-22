@@ -204,7 +204,7 @@ function process_options()
 {
 	local _opts="$@"
 	[ $(bool ${BT_debug}) ] && echo "[i] processing options: ${_opts}"
-	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	[ -f .tmp.sh ] && rm .tmp.sh
 	touch .tmp.sh
 	for opt in ${_opts}
 	do
@@ -219,14 +219,14 @@ function process_options()
 		fi
 	done
 	source .tmp.sh
-	rm -rf .tmp.sh
+	rm .tmp.sh
 }
 
 function reprocess_defined_options()
 {
 	local _opts="$@"
 	[ $(bool ${BT_debug}) ] && echo "[i] re-processing defined options: ${_opts}"
-	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	[ -f .tmp.sh ] && rm .tmp.sh
 	touch .tmp.sh
 	for opt in ${_opts}
 	do
@@ -235,7 +235,7 @@ function reprocess_defined_options()
 		fi
 	done
 	source .tmp.sh
-	rm -rf .tmp.sh
+	rm .tmp.sh
 }
 
 function process_options_config()
@@ -243,7 +243,7 @@ function process_options_config()
 	local _var="options"
 	[ ! -z $1 ] && _var=$1
 	local _opts=$(config_value ${_var})
-	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	[ -f .tmp.sh ] && rm .tmp.sh
 	touch .tmp.sh
 	for opt in ${_opts}
 	do
@@ -255,19 +255,19 @@ function process_options_config()
 		fi
 	done
 	source .tmp.sh
-	rm -rf .tmp.sh
+	rm .tmp.sh
 }
 
 function get_var_value()
 {
-	[ -f .tmp.sh ] && rm -rf .tmp.sh
+	[ -f .tmp.sh ] && rm .tmp.sh
 	touch .tmp.sh
 	echo "export BT_get_var_value_return=\$$1" >> .tmp.sh
 	source .tmp.sh
 	echo $BT_get_var_value_return
 	BT_get_var_value_return=""
 	#cp .tmp.sh peek.sh
-	rm -rf .tmp.sh
+	rm .tmp.sh
 }
 
 function is_BT_set()
@@ -470,7 +470,7 @@ function list_options()
 function module_exists()
 {
 	local _retval=$(module -t avail ${1} 2>&1)
-	if [ "x${_retval}" == "x" ]; then 
+	if [ "x${_retval}" == "x" ]; then
 		echo "no"
 	else
 		echo "yes"
@@ -586,6 +586,20 @@ function download()
 	fi
 }
 
+function resolve_directory()
+{
+	[ ! -d "${1}" ] && do_exit ${BT_error_code}
+	cd "$1" 2>/dev/null || return $?  # cd to desired directory; if fail, quell any error messages but return exit status
+	echo $(pwd -P) # output full, link-resolved path
+}
+
+function resolve_file()
+{
+	local _dir=$(file_dir ${1})
+	_retval="$(resolve_directory ${_dir})/$(basename ${1})"
+	echo ${_retval}
+}
+
 function setup_src_dir()
 {
 	savedir=$PWD
@@ -599,11 +613,11 @@ function setup_src_dir()
 		[ -z ${_local_dir} ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
 		[ ${_local_dir} == "." ] && echo "[error] bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
 		[ -z ${_local_dir} ] && echo "[error] bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
-		export BT_src_dir=${BT_sources_dir}/${_local_dir}
+		export BT_src_dir=$(resolve_directory ${BT_sources_dir}/${_local_dir})
 		echo "[i] setup unpack_dir to ${BT_src_dir}"
 	else
 		if [ -z "${BT_src_dir}" ]; then
-			export BT_src_dir=${BT_sources_dir}/${BT_name}/${BT_version}
+			export BT_src_dir=$(resolve_directory ${BT_sources_dir}/${BT_name}/${BT_version})
 			echo "[i] setup src_dir to ${BT_src_dir}"
 		fi
 		[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
@@ -613,8 +627,7 @@ function setup_src_dir()
 
 function fix_working_paths()
 {
-	[ -z "${BT_working_dir}" ] && export BT_working_dir=$PWD/working_dir
-	export BT_working_dir=$(abspath $BT_working_dir)
+	[ "x${BT_working_dir}" == "x" ] && export BT_working_dir=$(pwd -P)/working_dir
 }
 
 function check_working_paths()
@@ -622,17 +635,19 @@ function check_working_paths()
 	fix_working_paths
 	[ ! -d "${BT_working_dir}" ] && mkdir -pv $BT_working_dir
 	[ ! -d "${BT_working_dir}" ] && echo "[error] working_dir not a directory [${BT_working_dir}]" && do_exit ${BT_error_code}
+	export BT_working_dir=$(resolve_directory ${BT_working_dir})
 	[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 }
 
 function fix_install_paths()
 {
-	if [ -z "${BT_install_dir}" ]; then
-		if [ -z "{BT_install_prefix}" ]; then
+	if [ "x${BT_install_dir}" == "x" ]; then
+		if [ "x{BT_install_prefix}" == "x" ]; then
 			export BT_install_prefix=$PWD
 			echo_padded_BT_var install_prefix
 		fi
 		export BT_install_dir=${BT_install_prefix}/${BT_name}/${BT_version}
+		eval BT_install_dir=${BT_install_dir}
 		export BT_install_dir
 	fi
 	#/${BT_name}/${BT_version}
@@ -693,8 +708,8 @@ function check_sources_paths()
 function fix_build_paths()
 {
 	fix_working_paths
-	[ -z "${BT_build_dir}" ] && export BT_build_dir=${BT_working_dir}/build/${BT_version}
-	export BT_build_dir=$BT_build_dir
+	[ "x${BT_build_dir}" == "x" ] && export BT_build_dir=${BT_working_dir}/build/${BT_version}
+	export BT_build_dir=${BT_build_dir}
 }
 
 function check_build_paths()
@@ -719,19 +734,33 @@ function build()
 	echo "[i] call to specific tool here..."
 }
 
+function check_rmdir()
+{
+	if [ -d ${1} ]; then
+		separator "? remove ?"
+		read -p "[?] directory: ${1} [y/N]" _user_input
+		if [ "x${_user_input}" == "xy" ]; then
+			echo "    -> removing... "
+			rm -rf ${1}
+		else
+			echo "    -> NOT removing"
+		fi
+	fi
+}
+
 function do_cleanup()
 {
 	if [ $(bool ${BT_cleanup}) ]; then
 		separator cleanup
 		fix_build_paths
-		[ -d ${BT_build_dir} ] && echo "[i] removing ${BT_build_dir}" && rm -rf ${BT_build_dir}
-		[ -d ${BT_working_dir} ] && echo "[i] removing ${BT_working_dir}" && rm -rf ${BT_working_dir}
+		[ -d ${BT_build_dir} ] && check_rmdir ${BT_build_dir}
+		[ -d ${BT_working_dir} ] && check_rmdir ${BT_working_dir}
 	fi
 }
 
 function init_build_tools()
 {
-	separator " init "
+	separator "init"
 	export BT_save_dir=$PWD
 	export BT_config_dir=$(dirname $(abspath ${BT_config}))
 	export BT_now=$(date +%Y-%m-%d_%H_%M_%S)
@@ -762,30 +791,34 @@ function init_build_tools()
 		fi
 	fi
 	[ $(bool ${BT_rebuild}) ] && export BT_clean="yes" && export BT_build="yes"
-
-	[ -z "${BT_version}" ] && warning "unspecified version - setting as now $BT_now" && export BT_version=$BT_now && echo_padded_BT_var version
-
+	[ "x${BT_version}" == "x" ] && warning "unspecified version - setting as now $BT_now" && export BT_version=$BT_now && echo_padded_BT_var version
 	[ $(bool ${BT_debug}) ] && env | grep BT_version=
-	[ -z "${BT_name}" ] && warning "guessing module name from $PWD" && export BT_name=$(basename $PWD) && 	echo_padded_BT_var name
+	[ "x${BT_name}" == "x" ] && warning "guessing module name from $PWD" && export BT_name=$(basename $PWD) && 	echo_padded_BT_var name
 	[ $(bool ${BT_debug}) ] && env | grep BT_name=
 
 	if [ $(bool ${BT_clean}) ]; then
 		separator clean
+		fix_working_paths
 		fix_install_paths
 		fix_build_paths
-		echo "[i] removing ${BT_install_dir}"
-		rm -rf ${BT_install_dir}
-		echo "[i] removing ${BT_build_dir}"
-		rm -rf ${BT_build_dir}
-		echo "[i] removing ${BT_working_dir}"
-		rm -rf ${BT_working_dir}
+		check_rmdir ${BT_install_dir}
+		check_rmdir ${BT_build_dir}
+		check_rmdir ${BT_working_dir}
 	fi
+
+	separator "fix paths"
 	fix_download_paths
 	fix_working_paths
 	fix_install_paths
 	fix_build_paths
 	fix_module_paths
 	setup_sources
+	echo_padded_BT_var working_dir
+	echo_padded_BT_var install_dir
+	echo_padded_BT_var buid_dir
+	echo_padded_BT_var sources_dir
+	echo_padded_BT_var src_dir
+	echo_padded_BT_var module_dir
 	process_modules
 }
 
@@ -852,8 +885,12 @@ function make_module()
 		check_module_paths
 		[ ! -d ${BT_module_dir} ] && echo "[error] module folder does not exist." && do_exit ${BT_error_code}
 
-		echo "[i] modfile: "${BT_module_file}
-		rm -rf ${BT_module_file}
+		export BT_module_file=$(resolve_file ${BT_module_file})
+		echo_padded_BT_var module_file
+		export BT_install_dir=$(resolve_directory ${BT_install_dir})
+		echo_padded_BT_var install_dir
+
+		rm -r ${BT_module_file}
 		touch ${BT_module_file}
 
 cat>>${BT_module_file}<<EOL
