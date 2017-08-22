@@ -592,8 +592,6 @@ function setup_src_dir()
 	check_sources_paths
 	cd ${BT_working_dir}
 	separator "setup source"
-	echo "[i] setup unpack_dir..."
-	[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 	[ $(bool ${BT_debug}) ] && env | grep BT_local_file
 	if [ -f "${BT_local_file}" ]; then
 		local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
@@ -802,19 +800,20 @@ function run_build()
 		echo "[i] building..."
 		savedir=$PWD
 		cd ${BT_sources_dir}
-		if [ ! -d "${BT_src_dir}" ]; then
-			if [ -f "${BT_local_file}" ]; then
-				echo "[i] unpacking... [${BT_local_file}]"
-				tar zxvf ${BT_local_file} 2>&1 > /dev/null
-			else
-				echo "[error] local file [${BT_local_file}] does not exist" && do_exit ${BT_error_code}
-			fi
+		if [ "x${BT_src_dir}" == "x" ]; then
+			echo "[i] figuring out the src directory"
+	    	setup_src_dir
+			separator "build"
+	    	echo_padded_BT_var src_dir
 		fi
 		if [ ! -d "${BT_src_dir}" ]; then
 			warning "src directory "${BT_src_dir}" does not exist - trying to figure this using local file..."
-		    if [-f "${BT_local_file}"]; then
+		    if [ -f "${BT_local_file}" ]; then
 		    	setup_src_dir
-		    fi
+    			separator "build"
+				echo "[i] unpacking... [${BT_local_file}]"
+				tar zxvf ${BT_local_file} 2>&1 > /dev/null
+			fi
 		fi
 		[ ! -d "${BT_src_dir}" ] && echo "[error] src directory "${BT_src_dir}" does not exist" && do_exit ${BT_error_code}
 		cd "${BT_build_dir}"
@@ -951,6 +950,7 @@ if [[ ! "X$(basename -- ${0})" == "X$(basename $BASH_SOURCE)" ]]; then
 	# "Script is being sourced"
 	true
 else
+	export BT_n_cores=$(n_cores)
 	if [ "x${1}" != "x" ]; then
 		if [ $(is_opt_set --help) == "yes" ]; then
 			usage
