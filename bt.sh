@@ -574,41 +574,41 @@ function download()
 				[ -f "${BT_local_file}" ] && rm -fv ${BT_local_file}
 				wget ${BT_remote_file} --no-check-certificate -O ${BT_local_file}
 			else
-				echo "[w] file ${BT_local_file} exists. no download - use --force to override."
+				warning "file ${BT_local_file} exists. no download - use --force to override."
 			fi
 		else
 				wget ${BT_remote_file} --no-check-certificate -O ${BT_local_file}
 		fi
 		cd $savedir
-	fi
 	setup_src_dir
+	fi
 }
 
 function setup_src_dir()
 {
-	if [ $(bool ${BT_download}) ]; then
-		savedir=$PWD
-		cd ${BT_working_dir}
-		separator "setup source"
-		echo "[i] setup unpack_dir..."
-		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
-		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
-		if [ -f "${BT_local_file}" ]; then
-			local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
-			[ -z ${_local_dir} ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
-			[ ${_local_dir} == "." ] && echo "[error] bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
-			[ -z ${_local_dir} ] && echo "[error] bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
-			export BT_src_dir=${BT_sources_dir}/${_local_dir}
-			echo "[i] setup unpack_dir to ${BT_src_dir}"
-		else
-			if [ -z "${BT_src_dir}" ]; then
-				echo "[w] local file does not exist? ${local_file}"
-				export BT_src_dir=${BT_working_dir}/${BT_name}_${BT_version}
-			fi
-			[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
+	savedir=$PWD
+	check_working_paths
+	check_sources_paths
+	cd ${BT_working_dir}
+	separator "setup source"
+	echo "[i] setup unpack_dir..."
+	[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
+	[ $(bool ${BT_debug}) ] && env | grep BT_local_file
+	if [ -f "${BT_local_file}" ]; then
+		local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
+		[ -z ${_local_dir} ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
+		[ ${_local_dir} == "." ] && echo "[error] bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
+		[ -z ${_local_dir} ] && echo "[error] bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
+		export BT_src_dir=${BT_sources_dir}/${_local_dir}
+		echo "[i] setup unpack_dir to ${BT_src_dir}"
+	else
+		if [ -z "${BT_src_dir}" ]; then
+			warning "local file does not exist? ${local_file}"
+			export BT_src_dir=${BT_working_dir}/${BT_name}_${BT_version}
 		fi
-		cd $savedir
+		[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
 	fi
+	cd $savedir
 }
 
 function fix_working_paths()
@@ -763,10 +763,10 @@ function init_build_tools()
 	fi
 	[ $(bool ${BT_rebuild}) ] && export BT_clean="yes" && export BT_build="yes"
 
-	[ -z "${BT_version}" ] && echo "[w] unspecified version - setting as now $BT_now" && export BT_version=$BT_now && echo_padded_BT_var version
+	[ -z "${BT_version}" ] && warning "unspecified version - setting as now $BT_now" && export BT_version=$BT_now && echo_padded_BT_var version
 
 	[ $(bool ${BT_debug}) ] && env | grep BT_version=
-	[ -z "${BT_name}" ] && echo "[w] guessing module name from $PWD" && export BT_name=$(basename $PWD) && 	echo_padded_BT_var name
+	[ -z "${BT_name}" ] && warning "guessing module name from $PWD" && export BT_name=$(basename $PWD) && 	echo_padded_BT_var name
 	[ $(bool ${BT_debug}) ] && env | grep BT_name=
 
 	if [ $(bool ${BT_clean}) ]; then
@@ -808,6 +808,12 @@ function run_build()
 			else
 				echo "[error] local file [${BT_local_file}] does not exist" && do_exit ${BT_error_code}
 			fi
+		fi
+		if [ ! -d "${BT_src_dir}" ]; then
+			warning "src directory "${BT_src_dir}" does not exist - trying to figure this using local file..."
+		    if [-f "${BT_local_file}"]; then
+		    	setup_src_dir
+		    fi
 		fi
 		[ ! -d "${BT_src_dir}" ] && echo "[error] src directory "${BT_src_dir}" does not exist" && do_exit ${BT_error_code}
 		cd "${BT_build_dir}"
