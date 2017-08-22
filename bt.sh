@@ -21,7 +21,8 @@
 # exec_build_tool
 
 BT_global_args="$@"
-BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild remote_file script src_dir verbose version working_dir"
+BT_built_in_options=$(cat $BASH_SOURCE | grep -o "BT_.*" | cut -f 1 -d "}" | grep -v "=" | grep -v " " | grep -v "{" | grep -v ")" | sort -d | uniq | cut -f 2- -d "_" | grep -v built_in_options | grep -v get_var_value_return | grep -v global_args)
+#BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild remote_file script src_dir verbose version working_dir"
 BT_error_code=1
 
 function abspath()
@@ -883,15 +884,15 @@ prepend-path DYLD_LIBRARY_PATH <dir>/lib64
 EOL
 		fi
 
-		if [ ! -z ${has_pythonlib} ]; then
+		if [ ! -z ${BT_pythonlib} ]; then
 		if [ -d ${BT_install_dir}/lib64 ]; then
 cat >>${BT_module_file}<<EOL
-prepend-path PYTHONPATH <dir>/lib64/${has_pythonlib}
+prepend-path PYTHONPATH <dir>/lib64/${BT_pythonlib}
 EOL
 		fi
 		if [ -d ${BT_install_dir}/lib ]; then
 cat >>${BT_module_file}<<EOL
-prepend-path PYTHONPATH <dir>/lib/${has_pythonlib}
+prepend-path PYTHONPATH <dir>/lib/${BT_pythonlib}
 EOL
 		fi
 		fi
@@ -925,7 +926,7 @@ EOL
 function show_options()
 {
 	separator "show options"
-	local _all_opts=$(env | grep BT_ | sed 's|UNDEFINED_||g' | cut -f 1 -d "=" | sort | uniq)
+	local _all_opts=$(printenv | grep BT_ | sed 's|UNDEFINED_||g' | cut -f 1 -d "=" | sort | uniq)
 	#echo ${_all_opts}
 	#for o in ${BT_built_in_options}
 	for o in ${_all_opts}
@@ -941,7 +942,7 @@ function exec_build_tool()
 	run_build
 	make_module
 	do_cleanup
-	show_options
+	show_options all
 	separator " . "
 	do_exit
 }
