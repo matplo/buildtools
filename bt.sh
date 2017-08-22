@@ -39,7 +39,22 @@ function abspath()
 
 function thisdir()
 {
+	echo $BASH_SOURCE
 	THISFILE=`abspath $BASH_SOURCE`
+	XDIR=`dirname $THISFILE`
+	if [ -L ${THISFILE} ];
+	then
+		target=`readlink $THISFILE`
+		XDIR=`dirname $target`
+	fi
+
+	THISDIR=$XDIR
+	echo $THISDIR
+}
+
+function file_dir()
+{
+	THISFILE=`abspath $1`
 	XDIR=`dirname $THISFILE`
 	if [ -L ${THISFILE} ];
 	then
@@ -593,6 +608,7 @@ function check_install_paths()
 function fix_download_paths()
 {
 	fix_working_paths
+	# [ -z "${BT_local_file}" ] && export BT_local_file="${BT_working_dir}/downloads/${BT_name}_${BT_version}.download"
 	[ -z "${BT_local_file}" ] && export BT_local_file="${BT_working_dir}/downloads/${BT_name}.download"
 	BT_download_dir=$(dirname $BT_local_file)
 	export BT_download_dir=$BT_download_dir
@@ -618,7 +634,6 @@ function fix_sources_paths()
 	else
 		fix_working_paths
 		[ -z "${BT_sources_dir}" ] && export BT_sources_dir=${BT_working_dir}/src
-		[ ! -d ${BT_sources_dir} ] && echo "[warning] making directory for sources ${BT_sources_dir}"
 	fi
 }
 
@@ -627,6 +642,7 @@ function check_sources_paths()
 	fix_sources_paths
 	if [ -z "${BT_src_dir}" ]; then
 		check_working_paths
+		[ ! -d ${BT_sources_dir} ] && echo "[warning] making directory for sources ${BT_sources_dir}"
 		mkdir -pv ${BT_sources_dir}
 		[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit ${BT_error_code}
 	fi
@@ -879,27 +895,32 @@ function exec_build_tool()
 	do_exit
 }
 
-if [ ! -z $1 ]; then
-	if [ "$1" == "--help" ]; then
+if [[ ! "X$(basename -- ${0})" == "X$(basename $BASH_SOURCE)" ]]; then
+	# "Script is being sourced"
+	true
+else
+	if [ ! -z $1 ]; then
+		if [ "$1" == "--help" ]; then
+			usage
+		fi
+		separator "running with $1"
+		if [ ${1:0:2} == "BT" ]; then
+			eval $1
+		fi
+	else
 		usage
 	fi
-	separator "running with $1"
-	if [ ${1:0:2} == "BT" ]; then
-		eval $1
-	fi
-else
-	usage
-fi
 
-if [ -z ${BT_script} ]; then
-	separator "config mode"
-else
-	separator "script mode"
-	if [ -f ${BT_script} ]; then
-		export BT_script_dir=$(dirname $(abspath ${BT_script}))
-		source ${BT_script}
-		exec_build_tool
+	if [ -z ${BT_script} ]; then
+		separator "config mode"
 	else
-		echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
+		separator "script mode"
+		if [ -f ${BT_script} ]; then
+			export BT_script_dir=$(dirname $(abspath ${BT_script}))
+			source ${BT_script}
+			exec_build_tool
+		else
+			echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
+		fi
 	fi
 fi
