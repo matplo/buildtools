@@ -702,16 +702,18 @@ function init_build_tools()
 	# buildtools_dir=$(thisdir)
 
 	# process_user_short_options
-	process_options ${BT_built_in_options}
 	[ $(bool ${BT_help}) ] && usage
 	if [ -z ${BT_script} ]; then
+		process_options ${BT_built_in_options}
 		check_config_present
 		process_options_config
 		read_config_options
 		reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
 	else
 		if [ -f ${BT_script} ]; then
+			process_options ${BT_built_in_options}
 			source ${BT_script}
+			reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
 		else
 			echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
 		fi
