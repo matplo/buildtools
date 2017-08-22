@@ -713,6 +713,7 @@ function init_build_tools()
 		if [ -f ${BT_script} ]; then
 			process_options ${BT_built_in_options}
 			source ${BT_script}
+			process_options ${BT_built_in_options}
 			reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
 		else
 			echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
