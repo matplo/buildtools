@@ -498,7 +498,8 @@ function process_modules()
 				echo "[i] loading module [${m}]"
 				local _retval=$(module load ${m} 2>&1)
 				if [ "x${_retval}" != "x" ]; then
-					warning "something went wrong when loading module [${m}]"
+					echo "[error] something went wrong when loading module [${m}]"
+					do_exit $BT_error_code
 				else
 					module load ${m}
 				fi
@@ -795,8 +796,10 @@ function run_build()
 		check_sources_paths
 		check_install_paths
 		check_build_paths
-		echo "[i] src dir: ${BT_src_dir}"
-		echo "[i] install dir: ${BT_install_dir}"
+		echo_padded_BT_var src_dir
+		echo_padded_BT_var install_dir
+		echo_padded_BT_var n_cores
+		echo
 		echo "[i] building..."
 		savedir=$PWD
 		cd ${BT_sources_dir}
@@ -903,22 +906,34 @@ EOL
 		sedi "s|<name>|${BT_name}|g" ${BT_module_file}
 		sedi "s|<version>|${BT_version}|g" ${BT_module_file}
 
-		echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
+		# echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
 		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
 		for mp in $mpaths
 		do
 		        echo "module use $mp" >> ${BT_module_file}
 		done
+		# #loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file} | grep -v use.own`
+		# loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
+		# for m in $loaded
+		# do
+		#         #echo "prereq $m" >> ${BT_module_file}
+		#         echo "module load $m" >> ${BT_module_file}
+		# done
+		# echo "}" >> ${BT_module_file}
 
-		#loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file} | grep -v use.own`
 		loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
-		for m in $loaded
-		do
-		        #echo "prereq $m" >> ${BT_module_file}
-		        echo "module load $m" >> ${BT_module_file}
-		done
-		echo "}" >> ${BT_module_file}
-
+		if [ "x${BT_do_preload_modules}" != "x" ]; then
+			for m in $loaded
+			do
+			        #echo "prereq $m" >> ${BT_module_file}
+			        echo "module load $m" >> ${BT_module_file}
+			done
+		else
+			for m in $loaded
+			do
+			        echo "prereq $m" >> ${BT_module_file}
+			done
+		fi
 	fi
 }
 
