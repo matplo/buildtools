@@ -631,10 +631,14 @@ function setup_src_dir()
 		[ "x${_local_dir}" == "x" ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
 		[ "x${_local_dir}" == "x." ] && error "bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
 		[ "x${_local_dir}" == "x" ] && error "bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
-		export BT_src_dir=$(resolve_directory ${BT_sources_dir}/${_local_dir})
+		BT_sources_dir=$(resolve_directory ${BT_sources_dir})
+		[ "x${BT_sources_dir}" == "x" ] && error "something is off with sources dir [${BT_sources_dir}]" && do_exit ${BT_error_code}
+		[ ! -d ${BT_sources_dir} ] && error "something is off with sources dir [${BT_sources_dir}]" && do_exit ${BT_error_code}
+		export BT_sources_dir
+		export BT_src_dir=${BT_sources_dir}/${_local_dir}
 		echo "[i] setup unpack_dir based on local file to ${BT_src_dir}"
 	else
-		if [ -z "${BT_src_dir}" ]; then
+		if [ "x${BT_src_dir}" == "x" ]; then
 			export BT_src_dir=$(resolve_directory ${BT_sources_dir}/${BT_name}/${BT_version})
 			echo "[i] setup src_dir to ${BT_src_dir}"
 		fi
