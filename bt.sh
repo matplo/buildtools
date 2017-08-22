@@ -413,7 +413,7 @@ function usage()
 	#echo "[i] usage: $(basename $BASH_SOURCE) --config <config_file> [--clean] [--version] [--build] [--rebuild] [--module] [--help] [--dry]"
 	echo "[i] usage example: --config <config_file> --download --build"
 	echo "    see more at: https://github.com/matplo/buildtools"
-	process_user_short_options
+	# process_user_short_options
 	process_options "${BT_built_in_options}"
 	export BT_help="yes"
 	show_options all
@@ -701,7 +701,7 @@ function init_build_tools()
 	# up_dir=$(dirname $this_dir)
 	# buildtools_dir=$(thisdir)
 
-	process_user_short_options
+	# process_user_short_options
 	process_options ${BT_built_in_options}
 	[ $(bool ${BT_help}) ] && usage
 	if [ -z ${BT_script} ]; then
