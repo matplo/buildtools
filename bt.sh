@@ -603,7 +603,7 @@ function setup_src_dir()
 		echo "[i] setup unpack_dir to ${BT_src_dir}"
 	else
 		if [ -z "${BT_src_dir}" ]; then
-			export BT_src_dir=${BT_sources_dir}/${BT_version}
+			export BT_src_dir=${BT_sources_dir}/${BT_name}/${BT_version}
 			echo "[i] setup src_dir to ${BT_src_dir}"
 		fi
 		[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
