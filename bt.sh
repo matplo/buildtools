@@ -709,12 +709,14 @@ function init_build_tools()
 		process_options_config
 		read_config_options
 		reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
+		process_user_short_options
 	else
 		if [ -f ${BT_script} ]; then
 			process_options ${BT_built_in_options}
 			source ${BT_script}
 			process_options ${BT_built_in_options}
 			reprocess_defined_options ${BT_config_options} ${BT_built_in_options}
+			process_user_short_options
 		else
 			echo "[error] build script [${BT_script} does not exist." && do_exit ${BT_error_code}
 		fi
