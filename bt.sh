@@ -522,7 +522,7 @@ function separator()
 function warning()
 {
 	echo
-	echo "[warning] $(padding "[${@}] " "?" 50 left)"
+	echo "[warning] $(padding "[${@}] " "-" 50 left)"
 	echo
 }
 
