@@ -1002,7 +1002,12 @@ if [[ ! "X$(basename -- ${0})" == "X$(basename $BASH_SOURCE)" ]]; then
 	# "Script is being sourced"
 	true
 else
-	export BT_n_cores=$(n_cores)
+	#just to catch these either up front or in builtin scan
+	BT_n_cores=$(n_cores)
+	export BT_n_cores
+	BT_do_preload_modules=""
+	export BT_do_preload_modules
+	echo_padded_BT_var built_in_options
 	if [ "x${1}" != "x" ]; then
 		if [ $(is_opt_set --help) == "yes" ]; then
 			usage
