@@ -283,7 +283,7 @@ function is_BT_set()
 
 function echo_padded_var()
 {
-	if [ ! -z {$1_x} ]; then
+	if [ "x{1}" != "x" ]; then
 		echo $(padding "   [${1}] " "-" 20 right)" : "$(get_var_value ${1})
 	else
 		echo $(padding "   [${1}] " "-" 20 right)" : UNDEFINED"
@@ -296,7 +296,7 @@ function echo_padded_BT_var()
 	if [ "${2}" == "all" ]; then
 		echo $(padding "   [${1}] " "-" 20 right)" : "${_defined}
 	else
-		if [ ! -z ${_defined} ]; then
+		if [ "x${_defined}" != "x" ]; then
 			echo $(padding "   [${1}] " "-" 20 right)" : "${_defined}
 		fi
 	fi
@@ -398,7 +398,7 @@ function process_user_short_options()
 	do
 		if [ ${o:0:2} == "--" ]; then
 			local _val=$(echo ${o} | cut -f 2 -d "=")
-			[ ${_val} == "${o}" ] && _val=""
+			[ "${#_val}" == "1" ] && [ ${_val} == "${o}" ] && _val=""
 			local _name=$(echo ${o} | cut -f 1 -d "=")
 			local _len="${#_name}"
 			_name=${_name:2:${_len}}
@@ -460,6 +460,16 @@ function list_options()
 	done
 }
 
+function module_exists()
+{
+	local _retval=$(module -t avail ${1} 2>&1)
+	if [ "x${_retval}" == "x" ]; then 
+		echo "no"
+	else
+		echo "yes"
+	fi
+}
+
 function process_modules()
 {
 	separator "use/load modules"
@@ -467,11 +477,26 @@ function process_modules()
 	do
 		local _path
 		eval _path=$p
-		echo "[i] adding module path: ${_path}"
-		module use ${_path}
+		if [ -d ${_path} ]; then
+			echo "[i] adding module path: [${_path}]"
+			module use ${_path}
+		else
+			warning "ignoring module path [${_path}]"
+		fi
 	done
 	if [ ! -z "${BT_modules}" ]; then
-		module load ${BT_modules}
+		for m in ${BT_modules}
+		do
+			if [ $(module_exists ${m}) == "yes" ]; then
+				echo "[i] loading module [${m}]"
+				local _retval=$(module load ${m} 2>&1)
+				if [ "x${_retval}" != "x" ]; then
+					warning "something went wrong when loading module [${m}]"
+				fi
+			else
+				warning "module not found [${m}]"
+			fi
+		done
 	else
 		echo "[i] no extra modules loaded"
 	fi
@@ -482,6 +507,13 @@ function separator()
 {
 	echo
 	echo $(padding "   [${1}] " "-" 40 center)
+	echo
+}
+
+function warning()
+{
+	echo
+	echo "[warning] $(padding "[${@}] " "?" 50 left)"
 	echo
 }
 
@@ -506,7 +538,7 @@ function do_exit()
 		exit 0
 	else
 		if [ $(bool ${BT_ignore_errors}) ]; then
-			echo "[warning] error ignored - continuing..."
+			warning "error ignored - continuing..."
 		else
 			cd $BT_save_dir
 			exit $1
@@ -620,7 +652,7 @@ function check_download_paths()
 {
 	check_working_paths
 	fix_download_paths
-	[ ! -d ${BT_download_dir} ] && echo "[warning] making directory for download file ${BT_download_dir}"
+	[ ! -d ${BT_download_dir} ] && warning "making directory for download file ${BT_download_dir}"
 	mkdir -pv ${BT_download_dir}
 	[ ! -d "${BT_download_dir}" ] && echo "[error] download directory is not a dir ${BT_download_dir}" && do_exit ${BT_error_code}
 	[ $(bool ${BT_debug}) ] && env | grep BT_download_dir
@@ -642,7 +674,7 @@ function check_sources_paths()
 	fix_sources_paths
 	if [ -z "${BT_src_dir}" ]; then
 		check_working_paths
-		[ ! -d ${BT_sources_dir} ] && echo "[warning] making directory for sources ${BT_sources_dir}"
+		[ ! -d ${BT_sources_dir} ] && warning "making directory for sources ${BT_sources_dir}"
 		mkdir -pv ${BT_sources_dir}
 		[ ! -d "${BT_sources_dir}" ] && echo "[error] build directory is not a dir ${BT_sources_dir}" && do_exit ${BT_error_code}
 	fi
@@ -661,7 +693,7 @@ function check_build_paths()
 {
 	check_working_paths
 	fix_build_paths
-	[ ! -d ${BT_build_dir} ] && echo "[warning] making directory for building ${BT_build_dir}"
+	[ ! -d ${BT_build_dir} ] && warning "making directory for building ${BT_build_dir}"
 	mkdir -pv ${BT_build_dir}
 	[ ! -d "${BT_build_dir}" ] && echo "[error] build directory is not a dir ${BT_build_dir}" && do_exit ${BT_error_code}
 	[ $(bool ${BT_debug}) ] && env | grep BT_build_dir
