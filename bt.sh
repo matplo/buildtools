@@ -87,7 +87,7 @@ function get_opt_with()
 
 function is_opt_set()
 {
-	local retval=
+	local retval="no"
 	for g in ${BT_global_args}
 	do
 		if [[ ${g:0:1} != "-" ]]; then
@@ -207,7 +207,7 @@ function process_options()
 	touch .tmp.sh
 	for opt in ${_opts}
 	do
-		if [ $(is_opt_set "--${opt}") ];
+		if [ $(is_opt_set "--${opt}") == "yes" ];
 			then
 				echo "export BT_$opt=yes" >> .tmp.sh
 			else
@@ -429,9 +429,15 @@ function check_config_present()
 
 function bool()
 {
-	[ -z "$1" ] && echo && return
-	[ $1 == "yes" ] && echo "true"
-	[ $1 == "no" ] && echo ""
+	if [ "x${1}" == "x" ]; then
+	 	echo "" && return
+	else
+		if [ "${1}" == "no" ]; then
+			echo ""
+		else
+			echo "yes"
+		fi
+	fi
 }
 
 function is_set()
@@ -938,8 +944,8 @@ if [[ ! "X$(basename -- ${0})" == "X$(basename $BASH_SOURCE)" ]]; then
 	# "Script is being sourced"
 	true
 else
-	if [ ! -z $1 ]; then
-		if [ "$1" == "--help" ]; then
+	if [ "x${1}" != "x" ]; then
+		if [ $(is_opt_set --help) == "yes" ]; then
 			usage
 		fi
 		separator "running with $1"
