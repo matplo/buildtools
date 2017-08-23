@@ -1049,11 +1049,11 @@ EOL
 			done
 		fi
 		echo "}" >> ${BT_module_file}
-		echo "if { [ module-info mode unload ] } {" >> ${BT_module_file}
+		echo "if { [ module-info mode remove ] } {" >> ${BT_module_file}
 			for m in ${BT_this_loaded_modules}
 			do
 			        #echo "prereq $m" >> ${BT_module_file}
-			        echo "module unload $m" >> ${BT_module_file}
+			        echo "module remove $m" >> ${BT_module_file}
 			done
 		echo "}" >> ${BT_module_file}
 
