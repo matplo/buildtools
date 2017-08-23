@@ -760,14 +760,16 @@ function build()
 
 function check_rmdir()
 {
-	if [ -d ${1} ]; then
-		separator "? remove ?"
-		read -p "[?] directory: ${1} [y/N]" _user_input
-		if [ "x${_user_input}" == "xy" ]; then
-			echo "    -> removing... "
-			rm -rf ${1}
-		else
-			echo "    -> NOT removing"
+	if [ "x${1}" != "x" ]; then
+		if [ -d ${1} ]; then
+			separator "? remove ?"
+			read -p "[?] directory: ${1} [y/N]" _user_input
+			if [ "x${_user_input}" == "xy" ]; then
+				echo "    -> removing... "
+				rm -rf ${1}
+			else
+				echo "    -> NOT removing"
+			fi
 		fi
 	fi
 }
