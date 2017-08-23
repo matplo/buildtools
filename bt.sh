@@ -25,6 +25,52 @@ BT_built_in_options=$(cat $BASH_SOURCE | grep -o "BT_.*" | cut -f 1 -d "}" | gre
 #BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild remote_file script src_dir verbose version working_dir"
 BT_error_code=1
 
+function no_white_space()
+{
+	local _trimmed="$(echo -e "${1}" | tr -d '[:space:]')"
+	echo ${_trimmed}
+}
+
+function trim_lead_space()
+{
+	local _trimmed="$(echo -e "${1}" | sed -e 's/^[[:space:]]*//')"
+	echo ${_trimmed}
+}
+
+function trim_trail_space()
+{
+	local _trimmed="$(echo -e "${1}" | sed -e 's/[[:space:]]*$//')"
+	echo ${_trimmed}
+}
+
+function trim_spaces()
+{
+	local _trimmed="$(echo -e "${1}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+	echo ${_trimmed}
+}
+
+function echo_debug()
+{
+	if [ "x${BT_debug}" != "x" ]; then
+		(>&2 echo "[debug] $@")
+	fi
+}
+
+function echo_info()
+{
+	(>&2 echo "[info] $@")
+}
+
+function echo_warning()
+{
+	(>&2 echo "[warning] $@")
+}
+
+function echo_error()
+{
+	(>&2 echo "[error] $@")
+}
+
 function separator()
 {
 	echo
@@ -33,16 +79,16 @@ function separator()
 
 function warning()
 {
-	echo "---------"
-	echo "[warning| $(padding "[${@}] " "-" 50 left)"
-	echo "---------"
+	echo_warning "---------"
+	echo_warning "$(padding "[${@}] " "-" 50 left)"
+	echo_warning "---------"
 }
 
 function error()
 {
-	echo "-------"
-	echo "[error] $(padding "[${@}] " "-" 50 left)"
-	echo "^^^^^^^"
+	echo_error "-------"
+	echo_error "$(padding "[${@}] " "-" 50 left)"
+	echo_error "^^^^^^^"
 }
 
 function padding ()
@@ -511,6 +557,31 @@ function module_exists()
 	fi
 }
 
+function current_loaded_modules()
+{
+	echo $(module -t list 2>&1 | grep -v ":" | tr '\n' ' ')
+}
+
+function try_load_module()
+{
+	local _new_loaded=""
+	local _mod=${1}
+	local _before=$(current_loaded_modules)
+	echo_debug "before: ${_before}"
+	local _retval=$(module load ${_mod} 2>&1)
+	if [ "x${_retval}" != "x" ]; then
+		error "something went wrong when loading module [${_mod}] ${_retval}"
+		do_exit $BT_error_code
+	else
+		module load ${_mod}
+	fi
+	local _after=$(current_loaded_modules)
+	echo_debug "after: ${_after}"
+	local _new_loaded=$(echo ${_after}|sed "s|${_before}||g"|tr '\n' ' ')
+	echo_debug "remaining: [${_new_loaded}]"
+	echo ${_new_loaded}
+}
+
 function process_modules()
 {
 	separator "use/load modules"
@@ -518,8 +589,10 @@ function process_modules()
 	do
 		local _path
 		eval _path=$p
+		export BT_save_module_paths=$(module -t avail 2>&1| grep ":" | tr ':' ' ' | tr '\n' ' ')
+		echo_info "pre module paths: ${BT_save_module_paths}"
 		if [ -d ${_path} ]; then
-			echo "[i] adding module path: [${_path}]"
+			echo_info "[i] adding module path: [${_path}]"
 			module use ${_path}
 		else
 			warning "ignoring module path [${_path}]"
@@ -529,18 +602,16 @@ function process_modules()
 		for m in ${BT_modules}
 		do
 			if [ $(module_exists ${m}) == "yes" ]; then
-				echo "[i] loading module [${m}]"
-				local _retval=$(module load ${m} 2>&1)
-				if [ "x${_retval}" != "x" ]; then
-					error "something went wrong when loading module [${m}]"
-					do_exit $BT_error_code
+				echo_info "loading module [${m}]"
+				local m_loaded=$(try_load_module ${m})
+				if [ "x${BT_this_loaded_modules}" == "x" ]; then
+					BT_this_loaded_modules=${m_loaded}
 				else
-					if [ "x${BT_this_loaded_modules}" == "x" ]; then
-						BT_this_loaded_modules=${m}
-					else
-						BT_this_loaded_modules="${BT_this_loaded_modules} ${m}"
-					fi
-					module load ${m}
+					BT_this_loaded_modules="${BT_this_loaded_modules} ${m_loaded}"
+				fi
+				echo_debug "loading [${m_loaded}]"
+				if [ "x${m_loaded}" != "x" ]; then
+					module load ${m_loaded}
 				fi
 			else
 				warning "module not found [${m}]"
@@ -951,6 +1022,24 @@ function check_module_paths()
 	[ ! -d "${BT_module_dir}" ] && error "module directory ${BT_module_dir} does not exist" && do_exit ${BT_error_code}
 }
 
+function is_in_string()
+{
+	local _s=$(trim_spaces ${1})
+	local _sin=$(echo ${@} | cut -f 2- -d " ")
+	local _retval="no"
+	echo_debug "seach for : ${_s}"
+	echo_debug "in a string: ${_sin}"
+	for s in ${_sin}
+	do
+		local _test=$(trim_spaces ${s})
+		if [ "x${_test}" == "x${_s}" ]; then
+			_retval="yes"
+			break
+		fi
+	done
+	echo ${_retval}
+}
+
 function make_module()
 {
 	if [ $(bool ${BT_module}) ]; then
@@ -1021,7 +1110,12 @@ EOL
 		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
 		for mp in $mpaths
 		do
+			if [ $(is_in_string ${mp} ${BT_save_module_paths}) == "yes" ]; then
+				echo_info "skipping path ${mp}"
+			else
+				echo_info "module use ${mp}"
 		        echo "module use $mp" >> ${BT_module_file}
+		    fi
 		done
 		echo "}" >> ${BT_module_file}
 
@@ -1079,7 +1173,7 @@ function exec_build_tool()
 	run_build
 	make_module
 	do_cleanup
-	show_options all
+	# show_options all
 	separator " . "
 	do_exit
 }
