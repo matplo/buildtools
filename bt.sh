@@ -778,6 +778,8 @@ function do_cleanup()
 		separator cleanup
 		fix_build_paths
 		[ -d ${BT_build_dir} ] && check_rmdir ${BT_build_dir}
+		[ -d ${BT_source_dir} ] && check_rmdir ${BT_source_dir}
+		[ -d ${BT_src_dir} ] && check_rmdir ${BT_src_dir}
 		[ -d ${BT_working_dir} ] && check_rmdir ${BT_working_dir}
 	fi
 }
