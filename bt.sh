@@ -732,7 +732,7 @@ function check_sources_paths()
 function fix_build_paths()
 {
 	fix_working_paths
-	[ "x${BT_build_dir}" == "x" ] && export BT_build_dir=${BT_working_dir}/build/${name}/${BT_version}
+	[ "x${BT_build_dir}" == "x" ] && export BT_build_dir=${BT_working_dir}/build/${BT_name}/${BT_version}
 	export BT_build_dir=${BT_build_dir}
 }
 
@@ -778,11 +778,19 @@ function do_cleanup()
 {
 	if [ $(bool ${BT_cleanup}) ]; then
 		separator cleanup
-		fix_build_paths
-		[ -d ${BT_build_dir} ] && check_rmdir ${BT_build_dir}
-		[ -d ${BT_source_dir} ] && check_rmdir ${BT_source_dir}
-		[ -d ${BT_src_dir} ] && check_rmdir ${BT_src_dir}
-		[ -d ${BT_working_dir} ] && check_rmdir ${BT_working_dir}
+		echo_padded_BT_var working_dir
+		echo_padded_BT_var install_dir
+		echo_padded_BT_var build_dir
+		echo_padded_BT_var sources_dir
+		echo_padded_BT_var src_dir
+		echo_padded_BT_var module_dir
+
+		check_rmdir "${BT_working_dir}"
+		# check_rmdir "${BT_install_dir}"
+		check_rmdir "${BT_build_dir}"
+		check_rmdir "${BT_sources_dir}"
+		check_rmdir "${BT_src_dir}"
+		# check_rmdir "${BT_module_dir}"
 	fi
 }
 
@@ -824,26 +832,36 @@ function init_build_tools()
 	[ "x${BT_name}" == "x" ] && warning "guessing module name from $PWD" && export BT_name=$(basename $PWD) && 	echo_padded_BT_var name
 	[ $(bool ${BT_debug}) ] && env | grep BT_name=
 
-	if [ $(bool ${BT_clean}) ]; then
-		separator clean
-		fix_working_paths
-		fix_install_paths
-		fix_build_paths
-		check_rmdir ${BT_install_dir}
-		check_rmdir ${BT_build_dir}
-		check_rmdir ${BT_working_dir}
-	fi
-
 	separator "fix paths"
 	fix_download_paths
 	fix_working_paths
 	fix_install_paths
 	fix_build_paths
 	fix_module_paths
+
+	if [ $(bool ${BT_clean}) ]; then
+		separator clean
+		echo_padded_BT_var working_dir
+		echo_padded_BT_var install_dir
+		echo_padded_BT_var build_dir
+		echo_padded_BT_var sources_dir
+		echo_padded_BT_var src_dir
+		echo_padded_BT_var module_dir
+
+		fix_working_paths
+		fix_install_paths
+		fix_build_paths
+		check_rmdir ${BT_install_dir}
+		check_rmdir ${BT_build_dir}
+		check_rmdir ${BT_working_dir}
+
+		separator "fix paths ..."
+	fi
+
 	setup_sources
 	echo_padded_BT_var working_dir
 	echo_padded_BT_var install_dir
-	echo_padded_BT_var buid_dir
+	echo_padded_BT_var build_dir
 	echo_padded_BT_var sources_dir
 	echo_padded_BT_var src_dir
 	echo_padded_BT_var module_dir
