@@ -592,23 +592,44 @@ function download()
 	fi
 }
 
+function resolve_directory_full()
+{
+	local _dir_to_resolve="${1}"
+	if [ -f ${_dir_to_resolve} ]; then
+		_dir_to_resolve=$(dirname ${_dir_to_resolve})
+	fi
+	[ ! -d ${_dir_to_resolve} ] && do_exit ${BT_error_code}
+	savedir=$(pwd)
+	cd ${_dir_to_resolve} 2>/dev/null
+	local _retval="$?"
+	if [ "x${_retval}" == "x0" ]; then
+		echo $(pwd -P) # output full, link-resolved path - not with -P on PDSF
+	else
+		cd $savedir
+		echo "/dev/null/bad directory unable to resolve" && do_exit ${_retval}
+		# return ${_retval}  # cd to desired directory; if fail, quell any error messages but return exit status
+	fi
+}
+
 function resolve_directory()
 {
 	local _dir_to_resolve="${1}"
 	if [ -f ${_dir_to_resolve} ]; then
 		_dir_to_resolve=$(dirname ${_dir_to_resolve})
 	fi
-	[ ! -d ${1} ] && do_exit ${BT_error_code}
-	savedir=$(pwd -P)
-	cd ${1} 2>/dev/null
+	[ ! -d ${_dir_to_resolve} ] && do_exit ${BT_error_code}
+	savedir=$(pwd)
+	cd ${_dir_to_resolve} 2>/dev/null
 	local _retval="$?"
 	if [ "x${_retval}" == "x0" ]; then
-		echo $(pwd -P) # output full, link-resolved path
+		#echo $(pwd -P) # output full, link-resolved path - not with -P on PDSF
+		echo $(pwd)
 	else
 		cd $savedir
 		echo "/dev/null/bad directory unable to resolve" && do_exit ${_retval}
 		# return ${_retval}  # cd to desired directory; if fail, quell any error messages but return exit status
 	fi
+	cd ${savedir}
 }
 
 function resolve_file()
@@ -651,7 +672,8 @@ function setup_src_dir()
 
 function fix_working_paths()
 {
-	[ "x${BT_working_dir}" == "x" ] && export BT_working_dir=$(pwd -P)/working_dir
+	# not pwd -P
+	[ "x${BT_working_dir}" == "x" ] && export BT_working_dir=$(pwd)/working_dir
 }
 
 function check_working_paths()
