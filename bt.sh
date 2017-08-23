@@ -535,6 +535,11 @@ function process_modules()
 					error "something went wrong when loading module [${m}]"
 					do_exit $BT_error_code
 				else
+					if [ "x${BT_this_loaded_modules}" == "x" ]; then
+						BT_this_loaded_modules=${m}
+					else
+						BT_this_loaded_modules="${BT_this_loaded_modules} ${m}"
+					fi
 					module load ${m}
 				fi
 			else
@@ -1029,6 +1034,7 @@ EOL
 		# done
 		# echo "}" >> ${BT_module_file}
 
+		echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
 		loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
 		if [ "x${BT_do_preload_modules}" != "x" ]; then
 			for m in $loaded
@@ -1042,6 +1048,15 @@ EOL
 			        echo "prereq $m" >> ${BT_module_file}
 			done
 		fi
+		echo "}" >> ${BT_module_file}
+		echo "if { [ module-info mode unload ] } {" >> ${BT_module_file}
+			for m in ${BT_this_loaded_modules}
+			do
+			        #echo "prereq $m" >> ${BT_module_file}
+			        echo "module unload $m" >> ${BT_module_file}
+			done
+		echo "}" >> ${BT_module_file}
+
 	fi
 }
 
