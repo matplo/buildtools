@@ -1012,12 +1012,14 @@ EOL
 		sedi "s|<name>|${BT_name}|g" ${BT_module_file}
 		sedi "s|<version>|${BT_version}|g" ${BT_module_file}
 
-		# echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
+		echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
 		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
 		for mp in $mpaths
 		do
 		        echo "module use $mp" >> ${BT_module_file}
 		done
+		echo "}" >> ${BT_module_file}
+
 		# #loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file} | grep -v use.own`
 		# loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
 		# for m in $loaded
