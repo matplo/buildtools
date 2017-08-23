@@ -761,7 +761,7 @@ function build()
 function check_rmdir()
 {
 	if [ "x${1}" != "x" ]; then
-		if [ -d ${1} ]; then
+		if [ -d "${1}" ]; then
 			separator "? remove ?"
 			read -p "[?] directory: ${1} [y/N]" _user_input
 			if [ "x${_user_input}" == "xy" ]; then
