@@ -63,32 +63,33 @@ function echo_info()
 
 function echo_warning()
 {
-	(>&2 echo "[warning] $@")
+	(>&2 echo "\093[1;31m [warning] $@ \033[0m")
 }
 
 function echo_error()
 {
-	(>&2 echo "[error] $@")
+	(>&2 echo -e "\033[1;31m [error] $@ \033[0m")
 }
 
 function separator()
 {
 	echo
-	echo $(padding "   [${1}] " "-" 40 center)
+	echo -e "\033[1;32m $(padding "   [${1}] " "-" 40 center) \033[0m"
+	## colors at http://misc.flogisoft.com/bash/tip_colors_and_formatting
 }
 
 function warning()
 {
-	echo_warning "---------"
+	echo_warning
 	echo_warning "$(padding "[${@}] " "-" 50 left)"
-	echo_warning "---------"
+	echo_warning
 }
 
 function error()
 {
-	echo_error "-------"
+	echo_error
 	echo_error "$(padding "[${@}] " "-" 50 left)"
-	echo_error "^^^^^^^"
+	echo_error
 }
 
 function padding ()
