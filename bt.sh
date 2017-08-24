@@ -585,15 +585,20 @@ function try_load_module()
 function process_modules()
 {
 	separator "use/load modules"
+	export BT_save_module_paths=$(module -t avail 2>&1| grep ":" | tr ':' ' ' | tr '\n' ' ')
+	echo_info "pre module paths: ${BT_save_module_paths}"
 	for p in ${BT_module_paths}
 	do
 		local _path
 		eval _path=$p
-		export BT_save_module_paths=$(module -t avail 2>&1| grep ":" | tr ':' ' ' | tr '\n' ' ')
-		echo_info "pre module paths: ${BT_save_module_paths}"
 		if [ -d ${_path} ]; then
-			echo_info "[i] adding module path: [${_path}]"
+			echo_info "adding module path: [${_path}]"
 			module use ${_path}
+			if [ "x${BT_this_added_module_paths}" == "x" ]; then
+				BT_this_added_module_paths=${_path}
+			else
+				BT_this_added_module_paths="${BT_this_added_module_paths} ${_path}"
+			fi
 		else
 			warning "ignoring module path [${_path}]"
 		fi
@@ -1024,6 +1029,10 @@ function check_module_paths()
 
 function is_in_string()
 {
+	local _n=$(no_white_space $(echo "$@" | wc -w))
+	echo_debug "n : ${_n} in ${@}"
+	[ ${_n} -eq 1 ] && echo "no" && return
+	[ ${_n} -eq 0 ] && echo "no" && return
 	local _s=$(trim_spaces ${1})
 	local _sin=$(echo ${@} | cut -f 2- -d " ")
 	local _retval="no"
@@ -1037,6 +1046,7 @@ function is_in_string()
 			break
 		fi
 	done
+	echo_debug "result is ${_retval}"
 	echo ${_retval}
 }
 
@@ -1101,56 +1111,48 @@ EOL
 
 		[ -d ${BT_install_dir}/bin ] && echo "prepend-path PATH <dir>/bin" >> ${BT_module_file}
 
+		local _this_module="$(basename $(dirname ${BT_module_file}))/${BT_version}"
+
 		sedi "s|<dir>|${BT_install_dir}|g" ${BT_module_file}
 		sedi "s|<name_to_upper>|$(echo ${BT_name} | awk '{print toupper($0)}')|g" ${BT_module_file}
 		sedi "s|<name>|${BT_name}|g" ${BT_module_file}
 		sedi "s|<version>|${BT_version}|g" ${BT_module_file}
 
-		echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
 		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
-		for mp in $mpaths
+		echo_debug "save module paths: ${BT_save_module_paths}"
+		echo_debug "this added module paths: ${BT_this_added_module_paths}"
+		for mp in ${BT_this_added_module_paths}
 		do
 			if [ $(is_in_string ${mp} ${BT_save_module_paths}) == "yes" ]; then
-				echo_info "skipping path ${mp}"
+				echo_debug "skipping path ${mp}"
 			else
-				echo_info "module use ${mp}"
+				echo_debug "module use ${mp}"
+				echo "if [ module-info mode load ] {" >> ${BT_module_file}
 		        echo "module use $mp" >> ${BT_module_file}
+		        echo "}" >> ${BT_module_file}
 		    fi
 		done
-		echo "}" >> ${BT_module_file}
 
-		# #loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file} | grep -v use.own`
-		# loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
-		# for m in $loaded
-		# do
-		#         #echo "prereq $m" >> ${BT_module_file}
-		#         echo "module load $m" >> ${BT_module_file}
-		# done
-		# echo "}" >> ${BT_module_file}
+		for m in ${BT_this_loaded_modules}
+		do
+			if [ "x${BT_do_preload_modules}" != "x" ]; then
+				echo "module load $m" >> ${BT_module_file}
+			else
+				echo "module load $m" >> ${BT_module_file}
+				#echo "prereq $m" >> ${BT_module_file}
+			fi
+		done
 
-		echo "if { [ module-info mode load ] } {" >> ${BT_module_file}
-		loaded=`module -t list 2>&1 | grep -v Current | grep -v ${BT_module_file}`
-		if [ "x${BT_do_preload_modules}" != "x" ]; then
-			for m in $loaded
-			do
-			        #echo "prereq $m" >> ${BT_module_file}
-			        echo "module load $m" >> ${BT_module_file}
-			done
-		else
-			for m in $loaded
-			do
-			        echo "prereq $m" >> ${BT_module_file}
-			done
-		fi
-		echo "}" >> ${BT_module_file}
-		echo "if { [ module-info mode remove ] } {" >> ${BT_module_file}
-			for m in ${BT_this_loaded_modules}
-			do
-			        #echo "prereq $m" >> ${BT_module_file}
-			        echo "module remove $m" >> ${BT_module_file}
-			done
-		echo "}" >> ${BT_module_file}
-
+		all_loaded=`module -t list 2>&1 | grep -v Current | grep -v ${_this_module} | tr '\n' ' '`
+		echo_debug "all loaded modules: ${all_loaded}"
+		echo_debug "this loaded modules: ${BT_this_loaded_modules}"
+		for m in ${all_loaded}
+		do
+			if [ "x$(is_in_string ${m} ${BT_this_loaded_modules})" == "xno" ]; then
+				echo_debug "-> prereq ${m}"
+				echo "prereq $m" >> ${BT_module_file}
+			fi
+		done
 	fi
 }
 
