@@ -892,7 +892,10 @@ function do_cleanup()
 		check_rmdir "${BT_working_dir}"
 		# check_rmdir "${BT_install_dir}"
 		check_rmdir "${BT_build_dir}"
-		check_rmdir "${BT_sources_dir}"
+		if [ -f ${BT_local_file} ]; then
+			warning "suggesting to cleanup sources because BT_local_file=${BT_local_file} exists..."
+			check_rmdir "${BT_sources_dir}"
+		fi
 		check_rmdir "${BT_src_dir}"
 		# check_rmdir "${BT_module_dir}"
 	fi
