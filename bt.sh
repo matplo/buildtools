@@ -63,12 +63,12 @@ function echo_info()
 
 function echo_warning()
 {
-	(>&2 echo "\093[1;31m [warning] $@ \033[0m")
+	(>&2 echo -e "\033[1;93m $@ \033[0m")
 }
 
 function echo_error()
 {
-	(>&2 echo -e "\033[1;31m [error] $@ \033[0m")
+	(>&2 echo -e "\033[1;31m $@ \033[0m")
 }
 
 function separator()
@@ -80,16 +80,16 @@ function separator()
 
 function warning()
 {
-	echo_warning
+	echo_warning "[warning]"
 	echo_warning "$(padding "[${@}] " "-" 50 left)"
-	echo_warning
+	echo_warning "[warning]"
 }
 
 function error()
 {
-	echo_error
+	echo_error "[error]"
 	echo_error "$(padding "[${@}] " "-" 50 left)"
-	echo_error
+	echo_error "[error]"
 }
 
 function padding ()
@@ -869,7 +869,7 @@ function check_rmdir()
 			separator "? remove ?"
 			read -p "[?] directory: ${1} [y/N]" _user_input
 			if [ "x${_user_input}" == "xy" ]; then
-				echo "    -> removing... "
+				warning "    -> removing... ${1}"
 				rm -rf ${1}
 			else
 				echo "    -> NOT removing"
