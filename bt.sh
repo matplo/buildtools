@@ -591,6 +591,30 @@ function current_loaded_modules()
 	echo $(module -t list 2>&1 | grep -v ":" | tr '\n' ' ')
 }
 
+function add_prereq_modules()
+{
+	for m in $@
+	do
+		if [ ! $(is_in_string ${m} ${BT_modules}) == "yes" ]; then
+			export BT_modules="${BT_modules} ${m}"
+		fi
+	done
+	echo_note "added module dependencies"
+	echo_padded_BT_var modules
+}
+
+function add_prereq_module_paths()
+{
+	for m in $@
+	do
+		if [ ! $(is_in_string ${m} ${BT_module_paths}) == "yes" ]; then
+			export BT_module_paths="${BT_module_paths} ${m}"
+		fi
+	done
+	echo_note "added module paths"
+	echo_padded_BT_var module_paths
+}
+
 function try_load_module()
 {
 	local _new_loaded=""
@@ -1065,14 +1089,14 @@ function check_module_paths()
 function is_in_string()
 {
 	local _n=$(no_white_space $(echo "$@" | wc -w))
-	echo_debug "n : ${_n} in ${@}"
+	echo_trace "n : ${_n} in ${@}"
 	[ ${_n} -eq 1 ] && echo "no" && return
 	[ ${_n} -eq 0 ] && echo "no" && return
 	local _s=$(trim_spaces ${1})
 	local _sin=$(echo ${@} | cut -f 2- -d " ")
 	local _retval="no"
-	echo_debug "seach for : ${_s}"
-	echo_debug "in a string: ${_sin}"
+	echo_trace "search for : ${_s}"
+	echo_trace "in a string: ${_sin}"
 	for s in ${_sin}
 	do
 		local _test=$(trim_spaces ${s})
@@ -1081,7 +1105,7 @@ function is_in_string()
 			break
 		fi
 	done
-	echo_debug "result is ${_retval}"
+	echo_trace "result is ${_retval}"
 	echo ${_retval}
 }
 
@@ -1172,6 +1196,7 @@ EOL
 		echo_debug "all loaded modules: ${all_loaded}"
 		echo_debug "this loaded modules: ${BT_this_loaded_modules}"
 		echo_padded_BT_var do_preload_modules
+		echo_padded_BT_var this_loaded_modules
 		for m in ${all_loaded}
 		do
 			if [ "x$(is_in_string ${m} ${BT_this_loaded_modules})" == "xno" ]; then
