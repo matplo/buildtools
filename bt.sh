@@ -56,6 +56,13 @@ function echo_debug()
 	fi
 }
 
+function echo_trace()
+{
+	if [ "x${BT_trace}" != "x" ]; then
+		(>&2 echo "[trace] $@")
+	fi
+}
+
 function echo_info()
 {
 	(>&2 echo "[info] $@")
@@ -555,9 +562,9 @@ function list_options()
 {
 	local _list=$(env | grep "BT_")
 	if [ -z "$1" ]; then
-		echo "[i] options:"
+		echo_note "[i] options:"
 	else
-		echo $1
+		echo_note "$1"
 	fi
 	for l in ${_list}
 	do
@@ -589,7 +596,7 @@ function try_load_module()
 	local _new_loaded=""
 	local _mod=${1}
 	local _before=$(current_loaded_modules)
-	echo_debug "before: ${_before}"
+	echo_trace "before: ${_before}"
 	local _retval=$(module load ${_mod} 2>&1)
 	if [ "x${_retval}" != "x" ]; then
 		error "something went wrong when loading module [${_mod}] ${_retval}"
@@ -598,9 +605,9 @@ function try_load_module()
 		module load ${_mod}
 	fi
 	local _after=$(current_loaded_modules)
-	echo_debug "after: ${_after}"
+	echo_trace "after: ${_after}"
 	local _new_loaded=$(echo ${_after}|sed "s|${_before}||g"|tr '\n' ' ')
-	echo_debug "remaining: [${_new_loaded}]"
+	echo_trace "remaining: [${_new_loaded}]"
 	echo ${_new_loaded}
 }
 
@@ -1206,7 +1213,7 @@ function show_options()
 function exec_build_tool()
 {
 	init_build_tools
-	[ ! -z ${BT_debug} ] && separator " debug/list " && list_options "[i] defined settings:" noundef
+	[ ! -z ${BT_debug} ] && separator "debug/list" && list_options "defined settings" noundef
 	run_build
 	make_module
 	do_cleanup
