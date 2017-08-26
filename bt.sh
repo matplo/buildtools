@@ -85,8 +85,7 @@ function note_red()
 function separator()
 {
 	echo
-	## echo -e "\033[1;32m $(padding "   [${1}] " "-" 25 center) \033[0m"
-	echo -e "\033[1;32m$(padding "   [${1}] " "-" 25 right) \033[0m"
+	echo -e "\033[1;32m$(padding "[ ${1} ]" "-" 25 center) \033[0m"
 	## colors at http://misc.flogisoft.com/bash/tip_colors_and_formatting
 }
 
@@ -521,7 +520,7 @@ function usage()
 	process_options "${BT_built_in_options}"
 	export BT_help="yes"
 	show_options all
-	separator " . "
+	separator "."
 	do_exit 0
 }
 
@@ -1230,7 +1229,7 @@ else
 		if [ $(is_opt_set --help) == "yes" ]; then
 			usage
 		fi
-		separator " ${BASH_SOURCE} "
+		separator "${BASH_SOURCE}"
 		note_red "running with $1"
 		if [ ${1:0:2} == "BT" ]; then
 			eval $1
