@@ -25,6 +25,12 @@ BT_built_in_options=$(cat $BASH_SOURCE | grep -o "BT_.*" | cut -f 1 -d "}" | gre
 #BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild remote_file script src_dir verbose version working_dir"
 BT_error_code=1
 
+function no_dots()
+{
+	local _trimmed=$(echo -e "${1}" | sed 's|\.|_|g')
+	echo ${_trimmed}
+}
+
 function no_white_space()
 {
 	local _trimmed="$(echo -e "${1}" | tr -d '[:space:]')"
@@ -108,16 +114,12 @@ function note()
 
 function warning()
 {
-	echo_warning "[warning]"
-	echo_warning "$(padding "[${@}] " "-" 50 left)"
-	echo_warning "[warning]"
+	echo_warning "[warning] $(padding "[${@}] " "-" 50 right)"
 }
 
 function error()
 {
-	echo_error "[error]"
-	echo_error "$(padding "[${@}] " "-" 50 left)"
-	echo_error "[error]"
+	echo_error "[error] $(padding "[${@}] " "-" 50 right)"
 }
 
 function padding ()
@@ -700,10 +702,14 @@ function do_exit()
 function download()
 {
 	if [ $(bool ${BT_download}) ]; then
+		separator download
+		if [ $(bool ${BT_disable_download}) ]; then
+			warning "download disabled within the script"
+			return
+		fi
 		check_download_paths
 		savedir=$PWD
 		cd ${BT_working_dir}
-		separator download
 		echo "[i] download..."
 		[ $(bool ${BT_debug}) ] && env | grep BT_working_dir
 		[ "x${BT_working_dir}" == "x" ] && error "working_dir not specified [${BT_working_dir}]" && do_exit ${BT_error_code}
@@ -776,33 +782,35 @@ function resolve_file()
 
 function setup_src_dir()
 {
-	savedir=$PWD
-	check_working_paths
-	check_sources_paths
-	cd ${BT_working_dir}
-	separator "setup source"
-	[ $(bool ${BT_debug}) ] && env | grep BT_local_file
-	if [ -f "${BT_local_file}" ]; then
-		local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
-		[ "x${_local_dir}" == "x" ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
-		[ "x${_local_dir}" == "x." ] && error "bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
-		[ "x${_local_dir}" == "x" ] && error "bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
-		BT_sources_dir=$(resolve_directory ${BT_sources_dir})
-		[ "x${BT_sources_dir}" == "x" ] && error "something is off with sources dir [${BT_sources_dir}]" && do_exit ${BT_error_code}
-		[ ! -d ${BT_sources_dir} ] && error "something is off with sources dir [${BT_sources_dir}]" && do_exit ${BT_error_code}
-		export BT_sources_dir
-		export BT_src_dir=${BT_sources_dir}/${_local_dir}
-		echo "[i] setup unpack_dir based on local file to ${BT_src_dir}"
-	else
-		if [ "x${BT_src_dir}" == "x" ]; then
+	if [ "x${BT_src_dir}" == "x" ]; then
+		savedir=$PWD
+		check_working_paths
+		check_sources_paths
+		cd ${BT_working_dir}
+		separator "setup source"
+		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
+		if [ -f "${BT_local_file}" ]; then
+			local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
+			[ "x${_local_dir}" == "x" ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
+			[ "x${_local_dir}" == "x." ] && error "bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
+			[ "x${_local_dir}" == "x" ] && error "bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
 			BT_sources_dir=$(resolve_directory ${BT_sources_dir})
+			[ "x${BT_sources_dir}" == "x" ] && error "something is off with sources dir [${BT_sources_dir}]" && do_exit ${BT_error_code}
+			[ ! -d ${BT_sources_dir} ] && error "something is off with sources dir [${BT_sources_dir}]" && do_exit ${BT_error_code}
 			export BT_sources_dir
-			export BT_src_dir=${BT_sources_dir}/${BT_name}/${BT_version}
-			echo "[i] setup src_dir to ${BT_src_dir}"
+			export BT_src_dir=${BT_sources_dir}/${_local_dir}
+			echo "[i] setup unpack_dir based on local file to ${BT_src_dir}"
+		else
+			if [ "x${BT_src_dir}" == "x" ]; then
+				BT_sources_dir=$(resolve_directory ${BT_sources_dir})
+				export BT_sources_dir
+				export BT_src_dir=${BT_sources_dir}/${BT_name}/${BT_version}
+				echo "[i] setup src_dir to ${BT_src_dir}"
+			fi
+			[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
 		fi
-		[ $(bool ${BT_debug}) ] && env | grep BT_src_dir
+		cd $savedir
 	fi
-	cd $savedir
 }
 
 function fix_working_paths()
@@ -947,13 +955,24 @@ function do_cleanup()
 		check_rmdir "${BT_working_dir}"
 		# check_rmdir "${BT_install_dir}"
 		check_rmdir "${BT_build_dir}"
-		if [ -f ${BT_local_file} ]; then
-			warning "suggesting to cleanup sources because BT_local_file=${BT_local_file} exists..."
-			check_rmdir "${BT_sources_dir}"
-			check_rmdir "${BT_src_dir}"
+		if [ "x${BT_local_file}" != "x" ]; then
+			if [ -f ${BT_local_file} ]; then
+				warning "suggesting to cleanup sources because BT_local_file=${BT_local_file} exists..."
+				check_rmdir "${BT_sources_dir}"
+				check_rmdir "${BT_src_dir}"
+			fi
 		fi
 		# check_rmdir "${BT_module_dir}"
 	fi
+}
+
+function is_module_loaded()
+{
+	local _check=$(module -t list 2>&1 | grep "${BT_name}/${BT_version}")
+	if [ "x${_check}" == "x${BT_name}/${BT_version}" ]; then
+		echo "yes"
+	fi
+	echo
 }
 
 function init_build_tools()
@@ -995,11 +1014,19 @@ function init_build_tools()
 	[ $(bool ${BT_debug}) ] && env | grep BT_name=
 
 	separator "fix paths"
-	fix_download_paths
-	fix_working_paths
-	fix_install_paths
-	fix_build_paths
-	fix_module_paths
+	if [ "x$(is_module_loaded)" == "xyes" ]; then
+		BT_working_dir=$(get_var_value BT_working_dir)
+		for _dir in working_dir install_dir build_dir src_dir module_dir
+		do
+			eval BT_${_dir}=$(get_var_value BT_${_dir}_${BT_name}_$(no_dots ${BT_version}))
+		done
+	else
+		fix_download_paths
+		fix_working_paths
+		fix_install_paths
+		fix_build_paths
+		fix_module_paths
+	fi
 
 	if [ $(bool ${BT_clean}) ]; then
 		separator clean
@@ -1027,13 +1054,21 @@ function init_build_tools()
 	echo_padded_BT_var sources_dir
 	echo_padded_BT_var src_dir
 	echo_padded_BT_var module_dir
-	process_modules
+	if [ "x$(is_module_loaded)" == "xyes" ]; then
+		note "module for ${BT_name} version ${BT_version} already loaded... nothing to load here."
+	else
+		process_modules
+	fi
 }
 
 function run_build()
 {
 	if [ $(bool ${BT_build}) ]; then
 		separator "build"
+		if [ $(bool ${BT_disable_build}) ]; then
+			warning "build disabled within the script $(abspath ${BT_script})"
+			return
+		fi
 		check_sources_paths
 		check_install_paths
 		check_build_paths
@@ -1113,6 +1148,11 @@ function make_module()
 {
 	if [ $(bool ${BT_module}) ]; then
 		separator "make module"
+		if [ "x$(is_module_loaded)" == "xyes" ]; then
+			warning "a module ${BT_name}/${BT_version} is already loaded - this does not look good. bailing out."
+			warning "... you may want to unload it first & then run: ${BT_run_command} --module"
+			return
+		fi
 		check_module_paths
 		[ ! -d ${BT_module_dir} ] && error "module folder does not exist." && do_exit ${BT_error_code}
 
@@ -1166,6 +1206,20 @@ cat >>${BT_module_file}<<EOL
 prepend-path PYTHONPATH <dir>/lib/${BT_pythonlib}
 EOL
 		fi
+		fi
+
+		for _dir in working_dir install_dir build_dir src_dir module_dir
+		do
+			echo "setenv BT_${_dir}_${BT_name}_$(no_dots ${BT_version}) $(get_var_value BT_${_dir})" >> ${BT_module_file}
+		done
+		echo "setenv BT_${BT_name}_version ${BT_name}_${BT_version}" >> ${BT_module_file}
+		echo "set-alias bt_run_${BT_name}_$(no_dots ${BT_version}) \"$(get_var_value BT_run_command)\"" >> ${BT_module_file}
+		if [ $(bool ${BT_disable_build}) ]; then
+			note "bt_build_${BT_name}_$(no_dots ${BT_version}) alias will not be available - build disabled"
+			note "bt_rebuild_${BT_name}_$(no_dots ${BT_version}) alias will not be available - build disabled"
+		else
+			echo "set-alias bt_build_${BT_name}_$(no_dots ${BT_version}) \"$(get_var_value BT_build_command)\"" >> ${BT_module_file}
+			echo "set-alias bt_rebuild_${BT_name}_$(no_dots ${BT_version}) \"$(get_var_value BT_rebuild_command)\"" >> ${BT_module_file}
 		fi
 
 		[ -d ${BT_install_dir}/bin ] && echo "prepend-path PATH <dir>/bin" >> ${BT_module_file}
@@ -1276,6 +1330,13 @@ else
 		separator "script mode"
 		if [ -f ${BT_script} ]; then
 			export BT_script_dir=$(dirname $(abspath ${BT_script}))
+			echo_padded_BT_var script_dir
+			export BT_build_command="$(abspath $BASH_SOURCE) BT_script=$(abspath ${BT_script}) --build"
+			export BT_rebuild_command="$(abspath $BASH_SOURCE) BT_script=$(abspath ${BT_script}) --rebuild"
+			export BT_run_command="$(abspath $BASH_SOURCE) BT_script=$(abspath ${BT_script})"
+			echo_debug $(echo_padded_BT_var run_command)
+			echo_debug $(echo_padded_BT_var build_command)
+			echo_debug $(echo_padded_BT_var rebuild_command)
 			source ${BT_script}
 			exec_build_tool
 		else
