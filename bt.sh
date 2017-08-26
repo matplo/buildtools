@@ -63,19 +63,41 @@ function echo_info()
 
 function echo_warning()
 {
-	(>&2 echo -e "\033[1;93m $@ \033[0m")
+	(>&2 echo -e "\033[1;93m$@ \033[0m")
 }
 
 function echo_error()
 {
-	(>&2 echo -e "\033[1;31m $@ \033[0m")
+	(>&2 echo -e "\033[1;31m$@ \033[0m")
+}
+
+function echo_note_red()
+{
+	(>&2 echo -e "\033[1;31m[note] $@ \033[0m")
+}
+
+
+function note_red()
+{
+	(>&2 echo -e "\033[1;31m[note] $@ \033[0m")
 }
 
 function separator()
 {
 	echo
-	echo -e "\033[1;32m $(padding "   [${1}] " "-" 40 center) \033[0m"
+	## echo -e "\033[1;32m $(padding "   [${1}] " "-" 25 center) \033[0m"
+	echo -e "\033[1;32m$(padding "   [${1}] " "-" 25 right) \033[0m"
 	## colors at http://misc.flogisoft.com/bash/tip_colors_and_formatting
+}
+
+function echo_note()
+{
+	echo_warning "$(padding "[note] ${@}" "-" 10 left)"
+}
+
+function note()
+{
+	echo_warning "$(padding "[note] ${@}" "-" 10 left)"
 }
 
 function warning()
@@ -366,9 +388,9 @@ function is_BT_set()
 function echo_padded_var()
 {
 	if [ "x{1}" != "x" ]; then
-		echo $(padding "   [${1}] " "-" 20 right)" : "$(get_var_value ${1})
+		echo $(padding "   [${1}] " "-" 25 right)" : "$(get_var_value ${1})
 	else
-		echo $(padding "   [${1}] " "-" 20 right)" : UNDEFINED"
+		echo $(padding "   [${1}] " "-" 25 right)" : UNDEFINED"
 	fi
 }
 
@@ -376,10 +398,10 @@ function echo_padded_BT_var()
 {
 	local _defined=$(get_var_value BT_${1})
 	if [ "${2}" == "all" ]; then
-		echo $(padding "   [${1}] " "-" 20 right)" : "${_defined}
+		echo $(padding "   [${1}] " "-" 25 right)" : "${_defined}
 	else
 		if [ "x${_defined}" != "x" ]; then
-			echo $(padding "   [${1}] " "-" 20 right)" : "${_defined}
+			echo $(padding "   [${1}] " "-" 25 right)" : "${_defined}
 		fi
 	fi
 }
@@ -586,8 +608,9 @@ function try_load_module()
 function process_modules()
 {
 	separator "use/load modules"
-	export BT_save_module_paths=$(module -t avail 2>&1| grep ":" | tr ':' ' ' | tr '\n' ' ')
-	echo_info "pre module paths: ${BT_save_module_paths}"
+	export BT_predefined_module_paths=$(module -t avail 2>&1| grep ":" | tr ':' ' ' | tr '\n' ' ')
+	echo_padded_BT_var do_preload_modules
+	echo_padded_BT_var predefined_module_paths
 	for p in ${BT_module_paths}
 	do
 		local _path
@@ -854,7 +877,9 @@ function setup_sources()
 {
 	fix_sources_paths
 	check_sources_paths
-	download
+	if [ $(bool ${BT_download}) ]; then
+		download
+	fi
 }
 
 function build()
@@ -1123,11 +1148,11 @@ EOL
 		sedi "s|<version>|${BT_version}|g" ${BT_module_file}
 
 		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
-		echo_debug "save module paths: ${BT_save_module_paths}"
+		echo_debug "save module paths: ${BT_predefined_module_paths}"
 		echo_debug "this added module paths: ${BT_this_added_module_paths}"
 		for mp in ${BT_this_added_module_paths}
 		do
-			if [ $(is_in_string ${mp} ${BT_save_module_paths}) == "yes" ]; then
+			if [ $(is_in_string ${mp} ${BT_predefined_module_paths}) == "yes" ]; then
 				echo_debug "skipping path ${mp}"
 			else
 				echo_debug "module use ${mp}"
@@ -1135,6 +1160,23 @@ EOL
 		        echo "module use $mp" >> ${BT_module_file}
 		        echo "}" >> ${BT_module_file}
 		    fi
+		done
+
+		all_loaded=`module -t list 2>&1 | grep -v Current | grep -v ${_this_module} | tr '\n' ' '`
+		echo_debug "all loaded modules: ${all_loaded}"
+		echo_debug "this loaded modules: ${BT_this_loaded_modules}"
+		echo_padded_BT_var do_preload_modules
+		for m in ${all_loaded}
+		do
+			if [ "x$(is_in_string ${m} ${BT_this_loaded_modules})" == "xno" ]; then
+				if [ "x${BT_do_preload_modules}" != "xyes" ]; then
+					echo_note "-> prereq ${m}"
+					echo "prereq $m" >> ${BT_module_file}
+				else
+					echo_note "-> load ${m}"
+					echo "module load $m" >> ${BT_module_file}
+				fi
+			fi
 		done
 
 		for m in ${BT_this_loaded_modules}
@@ -1147,16 +1189,6 @@ EOL
 			fi
 		done
 
-		all_loaded=`module -t list 2>&1 | grep -v Current | grep -v ${_this_module} | tr '\n' ' '`
-		echo_debug "all loaded modules: ${all_loaded}"
-		echo_debug "this loaded modules: ${BT_this_loaded_modules}"
-		for m in ${all_loaded}
-		do
-			if [ "x$(is_in_string ${m} ${BT_this_loaded_modules})" == "xno" ]; then
-				echo_debug "-> prereq ${m}"
-				echo "prereq $m" >> ${BT_module_file}
-			fi
-		done
 	fi
 }
 
@@ -1198,7 +1230,8 @@ else
 		if [ $(is_opt_set --help) == "yes" ]; then
 			usage
 		fi
-		separator "running with $1"
+		separator " ${BASH_SOURCE} "
+		note_red "running with $1"
 		if [ ${1:0:2} == "BT" ]; then
 			eval $1
 		fi
