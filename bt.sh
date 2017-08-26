@@ -25,6 +25,12 @@ BT_built_in_options=$(cat $BASH_SOURCE | grep -o "BT_.*" | cut -f 1 -d "}" | gre
 #BT_built_in_options="build build_type clean cleanup config config_dir debug download dry force help ignore_errors install_dir install_prefix module module_dir module_paths modules name now rebuild remote_file script src_dir verbose version working_dir"
 BT_error_code=1
 
+function valid_var_name()
+{
+	local _trimmed=$(echo -e "${1}" | sed 's|\.|_|g' | sed 's|-|_|g')
+	echo ${_trimmed}
+}
+
 function no_dots()
 {
 	local _trimmed=$(echo -e "${1}" | sed 's|\.|_|g')
@@ -1018,7 +1024,7 @@ function init_build_tools()
 		BT_working_dir=$(get_var_value BT_working_dir)
 		for _dir in working_dir install_dir build_dir src_dir module_dir
 		do
-			eval BT_${_dir}=$(get_var_value BT_${_dir}_${BT_name}_$(no_dots ${BT_version}))
+			eval BT_${_dir}=$(get_var_value BT_${_dir}_${BT_name}_$(valid_var_name ${BT_version}))
 		done
 	else
 		fix_download_paths
@@ -1210,16 +1216,16 @@ EOL
 
 		for _dir in working_dir install_dir build_dir src_dir module_dir
 		do
-			echo "setenv BT_${_dir}_${BT_name}_$(no_dots ${BT_version}) $(get_var_value BT_${_dir})" >> ${BT_module_file}
+			echo "setenv BT_${_dir}_${BT_name}_$(valid_var_name ${BT_version}) \"$(get_var_value BT_${_dir})\"" >> ${BT_module_file}
 		done
 		echo "setenv BT_${BT_name}_version ${BT_name}_${BT_version}" >> ${BT_module_file}
-		echo "set-alias bt_run_${BT_name}_$(no_dots ${BT_version}) \"$(get_var_value BT_run_command)\"" >> ${BT_module_file}
+		echo "set-alias bt_run_${BT_name}_$(valid_var_name ${BT_version}) \"$(get_var_value BT_run_command)\"" >> ${BT_module_file}
 		if [ $(bool ${BT_disable_build}) ]; then
-			note "bt_build_${BT_name}_$(no_dots ${BT_version}) alias will not be available - build disabled"
-			note "bt_rebuild_${BT_name}_$(no_dots ${BT_version}) alias will not be available - build disabled"
+			note "bt_build_${BT_name}_$(valid_var_name ${BT_version}) alias will not be available - build disabled"
+			note "bt_rebuild_${BT_name}_$(valid_var_name ${BT_version}) alias will not be available - build disabled"
 		else
-			echo "set-alias bt_build_${BT_name}_$(no_dots ${BT_version}) \"$(get_var_value BT_build_command)\"" >> ${BT_module_file}
-			echo "set-alias bt_rebuild_${BT_name}_$(no_dots ${BT_version}) \"$(get_var_value BT_rebuild_command)\"" >> ${BT_module_file}
+			echo "set-alias bt_build_${BT_name}_$(valid_var_name ${BT_version}) \"$(get_var_value BT_build_command)\"" >> ${BT_module_file}
+			echo "set-alias bt_rebuild_${BT_name}_$(valid_var_name ${BT_version}) \"$(get_var_value BT_rebuild_command)\"" >> ${BT_module_file}
 		fi
 
 		[ -d ${BT_install_dir}/bin ] && echo "prepend-path PATH <dir>/bin" >> ${BT_module_file}
