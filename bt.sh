@@ -1240,17 +1240,18 @@ EOL
 		mpaths=`module -t avail 2>&1 | grep : | sed "s|:||g"`
 		echo_debug "save module paths: ${BT_predefined_module_paths}"
 		echo_debug "this added module paths: ${BT_this_added_module_paths}"
-		for mp in ${BT_this_added_module_paths}
-		do
-			if [ $(is_in_string ${mp} ${BT_predefined_module_paths}) == "yes" ]; then
-				echo_debug "skipping path ${mp}"
-			else
-				echo_debug "module use ${mp}"
-				echo "if [ module-info mode load ] {" >> ${BT_module_file}
-		        echo "module use $mp" >> ${BT_module_file}
-		        echo "}" >> ${BT_module_file}
-		    fi
-		done
+		# do not add the module use statement
+		# for mp in ${BT_this_added_module_paths}
+		# do
+		# 	if [ $(is_in_string ${mp} ${BT_predefined_module_paths}) == "yes" ]; then
+		# 		echo_debug "skipping path ${mp}"
+		# 	else
+		# 		echo_debug "module use ${mp}"
+		# 		echo "if [ module-info mode load ] {" >> ${BT_module_file}
+		#         echo "module use $mp" >> ${BT_module_file}
+		#         echo "}" >> ${BT_module_file}
+		#     fi
+		# done
 
 		all_loaded=`module -t list 2>&1 | grep -v Current | grep -v ${_this_module} | tr '\n' ' '`
 		echo_debug "all loaded modules: ${all_loaded}"
