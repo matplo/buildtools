@@ -1262,8 +1262,8 @@ EOL
 		do
 			if [ "x$(is_in_string ${m} ${BT_this_loaded_modules})" == "xno" ]; then
 				if [ "x${BT_do_preload_modules}" != "xyes" ]; then
-					echo_note "-> prereq ${m}"
-					echo "prereq $m" >> ${BT_module_file}
+					echo_note "ignoring -> prereq module [${m}]"
+					# echo "prereq $m" >> ${BT_module_file}
 				else
 					echo_note "-> load ${m}"
 					echo "module load $m" >> ${BT_module_file}
