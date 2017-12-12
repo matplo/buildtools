@@ -780,8 +780,8 @@ function setup_src_dir()
 		separator "setup source"
 		[ $(bool ${BT_debug}) ] && env | grep BT_local_file
 		if [ -f "${BT_local_file}" ]; then
-			local _local_dir=$(tar tfz ${BT_local_file} --exclude '*/*' | head -n 1)
-			[ "x${_local_dir}" == "x" ] && _local_dir=$(tar tfz ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
+			local _local_dir=$(tar tf ${BT_local_file} --exclude '*/*' | head -n 1)
+			[ "x${_local_dir}" == "x" ] && _local_dir=$(tar tf ${BT_local_file} | head -n 1 | cut -f 1 -d "/")
 			[ "x${_local_dir}" == "x." ] && error "bad _local_dir ${_local_dir}. stop." && do_exit ${BT_error_code}
 			[ "x${_local_dir}" == "x" ] && error "bad _local_dir EMPTY. stop." && do_exit ${BT_error_code}
 			BT_sources_dir=$(resolve_directory ${BT_sources_dir})
