@@ -3,22 +3,6 @@
 # how to use this:
 # implement a function build() & execute do_build
 # within build() rely on $BT variables
-# the simplest implementation
-# #!/bin/bash
-# cd $(dirname $BASH_SOURCE)
-# # cp -v ~/devel/buildtools/bt.sh .
-# [ ! -f ./bt.sh ] && wget https://raw.github.com/matplo/buildtools/master/bt.sh
-# [ ! -f ./bt.sh ] && echo "[i] no bt.sh - stop here." && exit 1
-# BT_config=./tmp.cfg
-# echo "clean=yes" > $BT_config
-# echo "cleanup=yes" >> $BT_config
-# echo "ignore_errors=yes" >> $BT_config
-# source bt.sh "$@" --build
-# function build()
-# {
-# 	separator "cmake/make/other commands here"
-# }
-# exec_build_tool
 
 BT_global_args="$@"
 BT_built_in_options=$(cat $BASH_SOURCE | grep -o "BT_.*" | cut -f 1 -d "}" | grep -v "=" | grep -v " " | grep -v "{" | grep -v ")" | sort -d | uniq | cut -f 2- -d "_" | grep -v built_in_options | grep -v get_var_value_return | grep -v global_args)
@@ -1067,6 +1051,11 @@ function init_build_tools()
 	fi
 }
 
+function untar_local_file()
+{
+	tar zxvf ${1} 2>&1 > /dev/null
+}
+
 function run_build()
 {
 	if [ $(bool ${BT_build}) ]; then
@@ -1097,7 +1086,7 @@ function run_build()
 		    	setup_src_dir
     			separator "build"
 				echo "[i] unpacking... [${BT_local_file}]"
-				tar zxvf ${BT_local_file} 2>&1 > /dev/null
+				untar_local_file ${BT_local_file}
 			fi
 		fi
 		[ ! -d "${BT_src_dir}" ] && error "src directory "${BT_src_dir}" does not exist" && do_exit ${BT_error_code}
