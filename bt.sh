@@ -1173,6 +1173,7 @@ EOL
 		echo 'setenv <name_to_upper>_ROOT <dir>' >> ${BT_module_file}
 		echo 'setenv <name_to_upper>_DIR <dir>' >> ${BT_module_file}
 		echo 'setenv <name_to_upper>DIR <dir>' >> ${BT_module_file}
+		echo 'setenv <name_to_upper>SYS <dir>' >> ${BT_module_file}
 
 		if [ -d ${BT_install_dir}/lib ]; then
 cat >>${BT_module_file}<<EOL
