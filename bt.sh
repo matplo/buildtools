@@ -139,19 +139,17 @@ function abspath()
 	esac
 }
 
+# https://stackoverflow.com/questions/59895/get-the-source-directory-of-a-bash-script-from-within-the-script-itself
 function thisdir()
 {
-	echo $BASH_SOURCE
-	THISFILE=`abspath $BASH_SOURCE`
-	XDIR=`dirname $THISFILE`
-	if [ -L ${THISFILE} ];
-	then
-		target=`readlink $THISFILE`
-		XDIR=`dirname $target`
-	fi
-
-	THISDIR=$XDIR
-	echo $THISDIR
+	SOURCE="${BASH_SOURCE[0]}"
+	while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+	  DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+	  SOURCE="$(readlink "$SOURCE")"
+	  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+	done
+	DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
+	echo ${DIR}
 }
 
 function file_dir()
@@ -234,8 +232,8 @@ function host_pdsf()
 
 function sedi()
 {
-	[ $(os_darwin) ] && sed -i "" -e $@
-	[ $(os_linux)  ] && sed -i'' -e $@
+	[ $(os_darwin) ] && sed -i "" -e \"$@\"
+	[ $(os_linux)  ] && sed -i'' -e \"$@\"
 }
 
 function strip_root_dir()
